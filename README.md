@@ -146,3 +146,12 @@ Authentication requires a reachable PostgreSQL database and valid environment va
 - Allocation records are configuration metadata only. Adding an allocation does not open a firewall port, bind a socket, create a container, or start Minecraft.
 - Use an address and port that are actually configured and available on the host. Do not assume that entering an IP/port here makes it reachable from the internet.
 - This milestone does not add live server power controls, console access, file access, or resource telemetry.
+
+
+## Individual server dashboard (Milestone 9)
+
+- Users can open a dedicated details page for each server from the Overview or Servers page.
+- The dashboard displays saved server identity, software/version, assigned node, allocation, memory limit, and storage quota.
+- Console and player panels clearly show that live data is not connected yet; they do not display fabricated server output or player counts.
+- Resource values are configured limits, not live usage measurements.
+- The dashboard is a presentation layer for saved configuration only. It does not start, stop, or otherwise control a Minecraft process.
