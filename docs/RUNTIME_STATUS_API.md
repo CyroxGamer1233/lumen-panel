@@ -42,7 +42,7 @@ Body:
 
 Allowed reported statuses: `installing`, `starting`, `running`, `stopping`, `stopped`, and `error`. The API verifies that the server is assigned to the authenticated node. Reports for servers assigned to another node are rejected. Messages are trimmed and limited to 200 characters.
 
-The latest report is stored in `server_runtime_status`, with the reporting node and timestamp. The authenticated user's `GET /api/servers` response includes:
+The latest report is stored in `server_runtime_status`, with the reporting node and timestamp. The current observation update and append-only activity insert are committed in one database transaction. The authenticated user's `GET /api/servers` response includes:
 - `runtime_status`: `not_reported`, `unavailable`, or the latest node-reported status
 - `runtime_message`
 - `runtime_reported_at`
@@ -57,3 +57,17 @@ A report is considered unavailable when the node is disabled or has not sent a h
 - The API does not accept command strings and does not expose Docker, Wings, host shell, or file operations.
 - The current node agent sends heartbeats only. It does not call the runtime status endpoint.
 - Until a separately reviewed runtime adapter exists, no actual Minecraft lifecycle actions are available. The power endpoint continues to return `RUNTIME_NOT_CONNECTED` with `executed: false`.
+
+
+## Runtime event history and activity logs — Milestone 13
+
+`GET /api/servers/:id/events` returns a server's activity history to its owner or an administrator.
+
+- Events include node-reported runtime status observations and panel power requests.
+- Results are ordered newest-first and paginated in batches of 50.
+- Pass the returned `next_cursor` as the `before` query parameter to load older events, for example `?before=123`.
+- The response includes `events`, `limit`, `has_more`, and `next_cursor`.
+- Invalid cursors are rejected with HTTP 400. Access to a server not owned by the signed-in user returns HTTP 404.
+- The server details page includes refresh and **Load older events** controls.
+- Runtime observation state and its activity record are written in one database transaction to avoid a status update without its corresponding audit event.
+- Power requests are logged as blocked and return `RUNTIME_NOT_CONNECTED` with `executed: false`. No Minecraft process is controlled by this milestone.
