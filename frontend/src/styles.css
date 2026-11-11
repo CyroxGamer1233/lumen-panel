@@ -119,3 +119,22 @@
 .lumen-clean .clean-node-refresh-meta span{font-size:9px;font-weight:800;color:#ffd400;letter-spacing:.35px}
 .lumen-clean .clean-node-refresh-meta small{font-size:9px;color:#858d91}
 @media(max-width:600px){.lumen-clean .clean-node-detail-heading{flex-wrap:wrap}.lumen-clean .clean-node-refresh-meta{order:3;flex-basis:100%;align-items:flex-start;padding-left:2px}}
+
+
+/* Server inventory — Milestone 7 */
+.lumen-clean .clean-server-count{font-size:10px;color:#ffd400;background:#292300;border:1px solid #514700;padding:7px 10px;border-radius:5px}
+.lumen-clean .clean-create-server{background:#121415;border:1px solid #292b2d;border-radius:8px;padding:18px;margin-bottom:22px}
+.lumen-clean .clean-create-server .clean-section-heading{margin:0 0 16px}
+.lumen-clean .clean-server-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.lumen-clean .clean-server-form label{display:grid;gap:7px;color:#aeb4b7;font-size:10px;font-weight:700}
+.lumen-clean .clean-server-form input,.lumen-clean .clean-server-form select{width:100%;min-width:0;background:#090a0b;border:1px solid #34383a;border-radius:6px;color:#f4f5f5;padding:10px 11px;font:inherit;font-size:11px;outline:none}
+.lumen-clean .clean-server-form input:focus,.lumen-clean .clean-server-form select:focus{border-color:#ffd400}
+.lumen-clean .clean-server-form button{align-self:end;min-height:36px}
+.lumen-clean .clean-form-note{font-size:10px;color:#858d91;margin:12px 0 0}
+.lumen-clean .clean-server-list{display:grid;gap:10px}
+.lumen-clean .clean-managed-server{display:flex;align-items:center;gap:13px;background:#121415;border:1px solid #292b2d;border-radius:8px;padding:16px}
+.lumen-clean .clean-managed-server-main{flex:1;min-width:0}
+.lumen-clean .clean-managed-server-main strong{font-size:12px}
+.lumen-clean .clean-managed-server-main p{font-size:10px;color:#b4bbbe;margin:5px 0}
+.lumen-clean .clean-managed-server-main small{font-size:9px;color:#858d91;overflow-wrap:anywhere}
+@media(max-width:600px){.lumen-clean .clean-server-form{grid-template-columns:1fr}.lumen-clean .clean-managed-server{align-items:flex-start;flex-wrap:wrap}.lumen-clean .clean-managed-server-main{min-width:calc(100% - 50px)}}
