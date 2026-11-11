@@ -347,27 +347,18 @@ app.get("/api/admin/users", requireAdmin, async (_req, res, next) => {
   }
 });
 
-app.get("/api/overview", requireAuth, (_req, res) => {
-  res.json({
-    mode: "demo",
-    nodes: [{ id: "local-dev", name: "Local development", status: "not_connected" }],
-    servers: [{
-      id: "lumen-smp",
-      name: "Lumen SMP",
-      game: "Minecraft Java",
-      software: "Paper",
-      version: "1.21.x",
-      status: "demo",
-      players: { online: 0, limit: 10 },
-      resources: {
-        cpuPercent: 12.4,
-        memoryMb: 2150,
-        memoryLimitMb: 5120,
-        diskMb: 8806,
-        diskLimitMb: 30720
-      }
-    }]
-  });
+app.get("/api/overview", requireAuth, async (req, res, next) => {
+  try {
+    const isAdmin = (await pool.query("SELECT role FROM users WHERE id = $1", [req.session.userId])).rows[0]?.role === "admin";
+    const result = await pool.query(`
+      SELECT s.id, s.name, s.game, s.software, s.version, s.memory_mb, s.disk_gb,
+        s.status, s.created_at, s.node_id, n.name AS node_name
+      FROM servers s LEFT JOIN nodes n ON n.id = s.node_id
+      ${isAdmin ? "" : "WHERE s.owner_id = $1"}
+      ORDER BY s.created_at DESC
+    `, isAdmin ? [] : [req.session.userId]);
+    res.json({ mode: "inventory", servers: result.rows, metrics: null });
+  } catch (error) { next(error); }
 });
 
 app.use((_req, res) => res.status(404).json({ error: "Route not found" }));
