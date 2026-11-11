@@ -142,6 +142,16 @@ await pool.query(`
 
 
 await pool.query(`
+  CREATE TABLE IF NOT EXISTS server_runtime_status (
+    server_id BIGINT PRIMARY KEY REFERENCES servers(id) ON DELETE CASCADE,
+    node_id BIGINT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL CHECK (status IN ('installing', 'starting', 'running', 'stopping', 'stopped', 'error')),
+    message VARCHAR(200),
+    reported_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )
+`);
+
+await pool.query(`
   CREATE TABLE IF NOT EXISTS allocations (
     id BIGSERIAL PRIMARY KEY,
     node_id BIGINT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
@@ -280,7 +290,14 @@ app.post("/api/auth/logout", requireAuth, requireCsrf, (req, res, next) => {
 
 app.get("/api/admin/nodes", requireAdmin, async (_req, res, next) => {
   try {
-    const result = await pool.query("SELECT id, name, enabled, agent_version, last_seen_at, created_at, CASE WHEN enabled = FALSE THEN 'disabled' WHEN last_seen_at > NOW() - INTERVAL '90 seconds' THEN 'online' ELSE 'offline' END AS status FROM nodes ORDER BY created_at DESC");
+    const result = await pool.query(`
+      SELECT id, name, enabled, agent_version, last_seen_at, created_at,
+        CASE WHEN enabled = FALSE THEN 'disabled'
+          WHEN last_seen_at > NOW() - INTERVAL '90 seconds' THEN 'online' ELSE 'offline' END AS status,
+        CASE WHEN last_seen_at IS NULL THEN NULL
+          ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - last_seen_at))))::INTEGER END AS heartbeat_age_seconds
+      FROM nodes ORDER BY created_at DESC
+    `);
     res.json({ nodes: result.rows });
   } catch (error) { next(error); }
 });
@@ -308,7 +325,40 @@ app.post("/api/node/heartbeat", nodeHeartbeatLimiter, requireNodeToken, async (r
   try {
     const agentVersion = typeof req.body.agentVersion === "string" ? req.body.agentVersion.trim().slice(0, 40) : null;
     await pool.query("UPDATE nodes SET last_seen_at = NOW(), agent_version = $1 WHERE id = $2 AND enabled = TRUE", [agentVersion || null, req.nodeId]);
-    res.json({ accepted: true, next_heartbeat_seconds: 30 });
+    res.json({
+      accepted: true,
+      node_id: req.nodeId,
+      next_heartbeat_seconds: 30,
+      server_time: new Date().toISOString()
+    });
+  } catch (error) { next(error); }
+});
+
+// Node-reported lifecycle observations. These are informational only; this endpoint
+// never executes a power action or provisions a Minecraft process.
+app.post("/api/node/servers/:id/status", nodeHeartbeatLimiter, requireNodeToken, async (req, res, next) => {
+  try {
+    if (!/^\\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid server ID." });
+    const status = typeof req.body.status === "string" ? req.body.status : "";
+    const allowedStatuses = ["installing", "starting", "running", "stopping", "stopped", "error"];
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({ error: "Choose a valid runtime status." });
+    }
+    const message = typeof req.body.message === "string" ? req.body.message.trim().slice(0, 200) : null;
+    const server = await pool.query(
+      "SELECT id FROM servers WHERE id = $1 AND node_id = $2",
+      [req.params.id, req.nodeId]
+    );
+    if (!server.rowCount) return res.status(404).json({ error: "Server is not assigned to this node." });
+    const result = await pool.query(`
+      INSERT INTO server_runtime_status (server_id, node_id, status, message, reported_at)
+      VALUES ($1, $2, $3, $4, NOW())
+      ON CONFLICT (server_id) DO UPDATE
+      SET node_id = EXCLUDED.node_id, status = EXCLUDED.status,
+          message = EXCLUDED.message, reported_at = NOW()
+      RETURNING server_id, status, message, reported_at
+    `, [req.params.id, req.nodeId, status, message || null]);
+    res.json({ accepted: true, observation: result.rows[0], server_time: new Date().toISOString() });
   } catch (error) { next(error); }
 });
 
@@ -319,8 +369,15 @@ app.get("/api/servers", requireAuth, async (req, res, next) => {
       SELECT s.id, s.name, s.game, s.software, s.version, s.memory_mb, s.disk_gb,
         s.status, s.created_at, s.node_id, s.allocation_id, a.ip AS allocation_ip, a.port AS allocation_port, n.name AS node_name,
         CASE WHEN n.id IS NULL THEN 'unassigned' WHEN n.enabled = FALSE THEN 'disabled'
-          WHEN n.last_seen_at > NOW() - INTERVAL '90 seconds' THEN 'online' ELSE 'offline' END AS node_status
-      FROM servers s LEFT JOIN nodes n ON n.id = s.node_id LEFT JOIN allocations a ON a.id = s.allocation_id
+          WHEN n.last_seen_at > NOW() - INTERVAL '90 seconds' THEN 'online' ELSE 'offline' END AS node_status,
+        CASE WHEN rs.server_id IS NULL THEN 'not_reported'
+          WHEN n.last_seen_at <= NOW() - INTERVAL '90 seconds' OR n.last_seen_at IS NULL THEN 'unavailable'
+          ELSE rs.status END AS runtime_status,
+        rs.message AS runtime_message, rs.reported_at AS runtime_reported_at
+      FROM servers s
+      LEFT JOIN nodes n ON n.id = s.node_id
+      LEFT JOIN allocations a ON a.id = s.allocation_id
+      LEFT JOIN server_runtime_status rs ON rs.server_id = s.id AND rs.node_id = s.node_id
       ${isAdmin ? "" : "WHERE s.owner_id = $1"}
       ORDER BY s.created_at DESC
     `, isAdmin ? [] : [req.session.userId]);
