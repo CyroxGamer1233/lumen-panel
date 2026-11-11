@@ -202,3 +202,20 @@
 .lumen-clean .clean-power-button:hover:not(:disabled){border-color:#ffd400;color:#ffd400}
 .lumen-clean .clean-power-button:disabled{opacity:.55;cursor:wait}
 .lumen-clean .clean-power-message{margin:10px 0 0;padding:10px;border:1px solid #604a22;background:#211b0e;border-radius:6px;color:#e9c76b;font-size:10px;line-height:1.5}
+
+
+/* Runtime event history — Milestone 13 */
+.lumen-clean .clean-activity-panel{margin-top:13px;background:#121415;border:1px solid #292b2d;border-radius:8px;padding:16px}
+.lumen-clean .clean-activity-panel .clean-server-panel-heading{align-items:center}
+.lumen-clean .clean-activity-panel .clean-refresh-button{margin-left:auto}
+.lumen-clean .clean-activity-empty{padding:24px 12px;text-align:center;color:#858d91;font-size:10px}
+.lumen-clean .clean-activity-list{display:grid;gap:0;margin-top:8px}
+.lumen-clean .clean-activity-item{display:flex;align-items:flex-start;gap:11px;padding:13px 2px;border-bottom:1px solid #292b2d;min-width:0}
+.lumen-clean .clean-activity-item:last-child{border-bottom:0}
+.lumen-clean .clean-activity-dot{width:7px;height:7px;flex:0 0 7px;margin-top:5px;border-radius:50%;background:#ffd400;box-shadow:0 0 0 3px #3b330c}
+.lumen-clean .clean-activity-copy{flex:1;min-width:0}
+.lumen-clean .clean-activity-copy strong{display:block;color:#e9ebeb;font-size:10px;text-transform:capitalize;overflow-wrap:anywhere}
+.lumen-clean .clean-activity-copy p{margin:5px 0;color:#aab0b3;font-size:9px;line-height:1.5;overflow-wrap:anywhere}
+.lumen-clean .clean-activity-copy small{color:#777f83;font-size:8px;line-height:1.5}
+.lumen-clean .clean-activity-kind{font-size:8px;font-weight:800;letter-spacing:.6px;color:#d8bd50;padding:4px 6px;border:1px solid #514700;border-radius:4px}
+@media(max-width:520px){.lumen-clean .clean-activity-panel{padding:12px}.lumen-clean .clean-activity-item{gap:8px}.lumen-clean .clean-activity-kind{font-size:7px}}
