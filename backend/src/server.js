@@ -7,7 +7,7 @@ import connectPgSimple from "connect-pg-simple";
 import rateLimit from "express-rate-limit";
 import argon2 from "argon2";
 import pg from "pg";
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 dotenv.config();
 
@@ -114,6 +114,23 @@ await pool.query(`
   )
 `);
 
+await pool.query("CREATE TABLE IF NOT EXISTS nodes (id BIGSERIAL PRIMARY KEY, name VARCHAR(60) NOT NULL, token_hash CHAR(64) NOT NULL UNIQUE, enabled BOOLEAN NOT NULL DEFAULT TRUE, agent_version VARCHAR(40), last_seen_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+
+const nodeHeartbeatLimiter = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: "draft-7", legacyHeaders: false });
+const hashNodeToken = (token) => createHash("sha256").update(token).digest("hex");
+
+const requireNodeToken = async (req, res, next) => {
+  try {
+    const authorization = req.get("authorization") || "";
+    const match = authorization.match(/^Bearer (lmn_node_[A-Za-z0-9_-]{40,})$/);
+    if (!match) return res.status(401).json({ error: "Node authentication required." });
+    const result = await pool.query("SELECT id FROM nodes WHERE token_hash = $1 AND enabled = TRUE", [hashNodeToken(match[1])]);
+    if (!result.rowCount) return res.status(401).json({ error: "Invalid node credentials." });
+    req.nodeId = result.rows[0].id;
+    next();
+  } catch (error) { next(error); }
+};
+
 app.get("/api/health", async (_req, res) => {
   try {
     await pool.query("SELECT 1");
@@ -121,7 +138,7 @@ app.get("/api/health", async (_req, res) => {
       name: "Lumen Panel API",
       status: "online",
       database: "connected",
-      version: "0.2.0",
+      version: "0.3.0",
       timestamp: new Date().toISOString()
     });
   } catch {
@@ -223,6 +240,40 @@ app.post("/api/auth/logout", requireAuth, requireCsrf, (req, res, next) => {
     res.clearCookie("lumen.sid", { httpOnly: true, secure: isProduction, sameSite: "lax" });
     res.status(204).end();
   });
+});
+
+app.get("/api/admin/nodes", requireAdmin, async (_req, res, next) => {
+  try {
+    const result = await pool.query("SELECT id, name, enabled, agent_version, last_seen_at, created_at, CASE WHEN enabled = FALSE THEN 'disabled' WHEN last_seen_at > NOW() - INTERVAL '90 seconds' THEN 'online' ELSE 'offline' END AS status FROM nodes ORDER BY created_at DESC");
+    res.json({ nodes: result.rows });
+  } catch (error) { next(error); }
+});
+
+app.post("/api/admin/nodes", requireAdmin, requireCsrf, async (req, res, next) => {
+  try {
+    const name = typeof req.body.name === "string" ? req.body.name.trim() : "";
+    if (name.length < 2 || name.length > 60) return res.status(400).json({ error: "Node name must be 2–60 characters." });
+    const token = "lmn_node_" + randomBytes(36).toString("base64url");
+    const result = await pool.query("INSERT INTO nodes (name, token_hash) VALUES ($1, $2) RETURNING id, name, enabled, created_at", [name, hashNodeToken(token)]);
+    res.status(201).json({ node: { ...result.rows[0], status: "offline" }, token, token_notice: "Copy this token now. It is shown only once." });
+  } catch (error) { next(error); }
+});
+
+app.post("/api/admin/nodes/:id/disable", requireAdmin, requireCsrf, async (req, res, next) => {
+  try {
+    if (!/^\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid node ID." });
+    const result = await pool.query("UPDATE nodes SET enabled = FALSE WHERE id = $1 RETURNING id, name, enabled", [req.params.id]);
+    if (!result.rowCount) return res.status(404).json({ error: "Node not found." });
+    res.json({ node: result.rows[0] });
+  } catch (error) { next(error); }
+});
+
+app.post("/api/node/heartbeat", nodeHeartbeatLimiter, requireNodeToken, async (req, res, next) => {
+  try {
+    const agentVersion = typeof req.body.agentVersion === "string" ? req.body.agentVersion.trim().slice(0, 40) : null;
+    await pool.query("UPDATE nodes SET last_seen_at = NOW(), agent_version = $1 WHERE id = $2 AND enabled = TRUE", [agentVersion || null, req.nodeId]);
+    res.json({ accepted: true, next_heartbeat_seconds: 30 });
+  } catch (error) { next(error); }
 });
 
 app.get("/api/admin/users", requireAdmin, async (_req, res, next) => {
