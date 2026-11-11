@@ -27,6 +27,8 @@ export default function App() {
   const [allocationChoices, setAllocationChoices] = useState({});
   const [editingServerId, setEditingServerId] = useState(null);
   const [serverEditDraft, setServerEditDraft] = useState({});
+  const [powerMessage, setPowerMessage] = useState("");
+  const [powerLoading, setPowerLoading] = useState("");
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
@@ -180,6 +182,26 @@ export default function App() {
       await loadServers();
     } catch (error) {
       setServerError(error.message);
+    }
+  };
+
+  const requestPowerAction = async (action) => {
+    setPowerMessage("");
+    setPowerLoading(action);
+    try {
+      const response = await fetch(`/api/servers/${selectedServerId}/power`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+        body: JSON.stringify({ action })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Power controls are unavailable.");
+      setPowerMessage("Action request accepted.");
+    } catch (error) {
+      setPowerMessage(error.message);
+    } finally {
+      setPowerLoading("");
     }
   };
 
@@ -392,6 +414,14 @@ export default function App() {
                     <div><span>STORAGE QUOTA</span><strong>{server.disk_gb} GB</strong></div>
                   </div>
                   <p className="clean-server-runtime-note">This server is a saved configuration. A Minecraft runtime is not connected yet.</p>
+                </section>
+                <section className="server-card clean-power-panel">
+                  <div className="clean-server-panel-heading"><div><Zap size={16}/><h2>Power controls</h2></div><span>RUNTIME OFFLINE</span></div>
+                  <div className="clean-power-actions">
+                    {["start", "restart", "stop"].map(action => <button type="button" key={action} className="clean-power-button" onClick={() => requestPowerAction(action)} disabled={Boolean(powerLoading)}>{powerLoading === action ? "Checking…" : action[0].toUpperCase() + action.slice(1)}</button>)}
+                  </div>
+                  <p className="clean-form-note">Controls are a connection check only. No Minecraft process will be started, stopped, or restarted until a secure runtime is installed.</p>
+                  {powerMessage && <p className="clean-power-message" role="status">{powerMessage}</p>}
                 </section>
                 <div className="clean-server-detail-columns">
                   <section className="server-card clean-server-console">
