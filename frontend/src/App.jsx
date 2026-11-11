@@ -21,6 +21,11 @@ export default function App() {
   const [serversLoading, setServersLoading] = useState(false);
   const [serverError, setServerError] = useState("");
   const [serverDraft, setServerDraft] = useState({ name: "", software: "Paper", version: "1.21.4", memoryMb: "2048", diskGb: "10", nodeId: "" });
+  const [allocations, setAllocations] = useState([]);
+  const [allocationDraft, setAllocationDraft] = useState({ nodeId: "", ip: "0.0.0.0", port: "25565" });
+  const [allocationChoices, setAllocationChoices] = useState({});
+  const [editingServerId, setEditingServerId] = useState(null);
+  const [serverEditDraft, setServerEditDraft] = useState({});
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
@@ -65,6 +70,73 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [active, user?.role]);
 
+  const loadAllocations = async () => {
+    try {
+      const response = await fetch("/api/admin/allocations", { credentials: "include" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not load allocations.");
+      setAllocations(data.allocations || []);
+    } catch (error) {
+      setServerError(error.message);
+    }
+  };
+
+  const createAllocation = async (event) => {
+    event.preventDefault();
+    setServerError("");
+    try {
+      const response = await fetch("/api/admin/allocations", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+        body: JSON.stringify({ ...allocationDraft, nodeId: Number(allocationDraft.nodeId), port: Number(allocationDraft.port) })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not create allocation.");
+      setAllocationDraft({ ...allocationDraft, port: String(Number(allocationDraft.port) + 1) });
+      await loadAllocations();
+    } catch (error) {
+      setServerError(error.message);
+    }
+  };
+
+  const assignAllocation = async (serverId) => {
+    setServerError("");
+    try {
+      const response = await fetch(`/api/servers/${serverId}/allocation`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+        body: JSON.stringify({ allocationId: allocationChoices[serverId] || null })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not assign allocation.");
+      await Promise.all([loadServers(), loadAllocations()]);
+    } catch (error) {
+      setServerError(error.message);
+    }
+  };
+
+  const saveServerConfig = async (event, serverId) => {
+    event.preventDefault();
+    setServerError("");
+    try {
+      const draft = serverEditDraft;
+      const response = await fetch(`/api/servers/${serverId}/config`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+        body: JSON.stringify({ ...draft, memoryMb: Number(draft.memoryMb), diskGb: Number(draft.diskGb) })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not update configuration.");
+      setEditingServerId(null);
+      await loadServers();
+    } catch (error) {
+      setServerError(error.message);
+    }
+  };
+
   const loadServers = async () => {
     setServersLoading(true);
     setServerError("");
@@ -83,7 +155,7 @@ export default function App() {
   useEffect(() => {
     if (active !== "Servers" && active !== "Overview") return;
     loadServers();
-    if (user?.role === "admin") loadNodes(false);
+    if (user?.role === "admin") { loadNodes(false); loadAllocations(); }
   }, [active, user?.role]);
 
   const createServer = async (event) => {
@@ -307,12 +379,35 @@ export default function App() {
                 <p className="clean-form-note">This saves a server configuration only. It does not download or start Minecraft.</p>
               </section>}
               {serverError && <p className="clean-node-error">{serverError}</p>}
+              {user?.role === "admin" && <section className="server-card clean-create-server clean-allocation-panel">
+                <div className="clean-section-heading"><h2>Port allocations</h2><span>{allocations.length} total</span></div>
+                <form onSubmit={createAllocation} className="clean-allocation-form">
+                  <label>Node<select value={allocationDraft.nodeId} onChange={event => setAllocationDraft({ ...allocationDraft, nodeId: event.target.value })} required><option value="">Select node</option>{nodes.filter(node => node.enabled).map(node => <option key={node.id} value={node.id}>{node.name}</option>)}</select></label>
+                  <label>Bind IP<input value={allocationDraft.ip} onChange={event => setAllocationDraft({ ...allocationDraft, ip: event.target.value })} placeholder="0.0.0.0" required /></label>
+                  <label>Port<input type="number" min="1024" max="65535" value={allocationDraft.port} onChange={event => setAllocationDraft({ ...allocationDraft, port: event.target.value })} required /></label>
+                  <button className="clean-open-button" type="submit">Add allocation</button>
+                </form>
+                <p className="clean-form-note">Add only IP addresses and ports that are configured and available on the selected host. 0.0.0.0 means bind to all IPv4 interfaces.</p>
+                {allocations.length > 0 && <div className="clean-allocation-list">{allocations.map(item => <div key={item.id}><span>{item.node_name}</span><strong>{item.ip}:{item.port}</strong><small>{item.server_name ? `Used by ${item.server_name}` : "Available"}</small></div>)}</div>}
+              </section>}
               <div className="clean-section-heading"><h2>All servers</h2><button className="clean-refresh-button" onClick={loadServers} disabled={serversLoading}>{serversLoading ? "Loading…" : "↻ Refresh"}</button></div>
               {serversLoading ? <div className="clean-empty-node">Loading servers…</div> : servers.length === 0 ? <div className="clean-empty-node">No servers yet.</div> : <div className="clean-server-list">
-                {servers.map(server => <section className="server-card clean-managed-server" key={server.id}>
+                {servers.map(server => <section className="server-card clean-managed-server clean-managed-server-expanded" key={server.id}>
                   <div className="game-icon"><Server size={21}/></div>
-                  <div className="clean-managed-server-main"><strong>{server.name}</strong><p>Minecraft Java · {server.software} · {server.version}</p><small>{server.node_name || "No node assigned"} · {server.memory_mb} MB RAM · {server.disk_gb} GB storage</small></div>
+                  <div className="clean-managed-server-main"><strong>{server.name}</strong><p>Minecraft Java · {server.software} · {server.version}</p><small>{server.node_name || "No node assigned"} · {server.memory_mb} MB RAM · {server.disk_gb} GB storage</small><small>{server.allocation_ip ? `Allocation ${server.allocation_ip}:${server.allocation_port}` : "No port allocation"}</small></div>
                   <span className="clean-node-status offline">{server.status === "pending" ? "PENDING" : server.status}</span>
+                  {user?.role === "admin" && <div className="clean-server-admin-actions">
+                    <div className="clean-assign-row"><select value={allocationChoices[server.id] ?? (server.allocation_id ? String(server.allocation_id) : "")} onChange={event => setAllocationChoices({ ...allocationChoices, [server.id]: event.target.value })}><option value="">No allocation</option>{allocations.filter(item => String(item.node_id) === String(server.node_id) && (!item.server_id || String(item.server_id) === String(server.id))).map(item => <option key={item.id} value={item.id}>{item.ip}:{item.port} {item.server_id ? "(assigned)" : ""}</option>)}</select><button type="button" className="clean-node-open-button" onClick={() => assignAllocation(server.id)}>Save port</button></div>
+                    {editingServerId === server.id ? <form className="clean-edit-config" onSubmit={event => saveServerConfig(event, server.id)}>
+                      <input aria-label="Server name" value={serverEditDraft.name} onChange={event => setServerEditDraft({ ...serverEditDraft, name: event.target.value })} required />
+                      <select aria-label="Software" value={serverEditDraft.software} onChange={event => setServerEditDraft({ ...serverEditDraft, software: event.target.value })}><option>Paper</option><option>Vanilla</option><option>Fabric</option></select>
+                      <input aria-label="Minecraft version" value={serverEditDraft.version} onChange={event => setServerEditDraft({ ...serverEditDraft, version: event.target.value })} required />
+                      <input aria-label="Memory MB" type="number" min="512" max="16384" value={serverEditDraft.memoryMb} onChange={event => setServerEditDraft({ ...serverEditDraft, memoryMb: event.target.value })} required />
+                      <input aria-label="Storage GB" type="number" min="1" max="200" value={serverEditDraft.diskGb} onChange={event => setServerEditDraft({ ...serverEditDraft, diskGb: event.target.value })} required />
+                      <button className="clean-open-button" type="submit">Save config</button>
+                      <button type="button" className="clean-node-open-button" onClick={() => setEditingServerId(null)}>Cancel</button>
+                    </form> : <button type="button" className="clean-node-open-button" onClick={() => { setEditingServerId(server.id); setServerEditDraft({ name: server.name, software: server.software, version: server.version, memoryMb: String(server.memory_mb), diskGb: String(server.disk_gb) }); }}>Edit config</button>}
+                  </div>}
                 </section>)}
               </div>}
             </>
