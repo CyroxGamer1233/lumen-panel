@@ -312,10 +312,10 @@ app.get("/api/servers", requireAuth, async (req, res, next) => {
     const isAdmin = (await pool.query("SELECT role FROM users WHERE id = $1", [req.session.userId])).rows[0]?.role === "admin";
     const result = await pool.query(`
       SELECT s.id, s.name, s.game, s.software, s.version, s.memory_mb, s.disk_gb,
-        s.status, s.created_at, s.node_id, n.name AS node_name,
+        s.status, s.created_at, s.node_id, s.allocation_id, a.ip AS allocation_ip, a.port AS allocation_port, n.name AS node_name,
         CASE WHEN n.id IS NULL THEN 'unassigned' WHEN n.enabled = FALSE THEN 'disabled'
           WHEN n.last_seen_at > NOW() - INTERVAL '90 seconds' THEN 'online' ELSE 'offline' END AS node_status
-      FROM servers s LEFT JOIN nodes n ON n.id = s.node_id
+      FROM servers s LEFT JOIN nodes n ON n.id = s.node_id LEFT JOIN allocations a ON a.id = s.allocation_id
       ${isAdmin ? "" : "WHERE s.owner_id = $1"}
       ORDER BY s.created_at DESC
     `, isAdmin ? [] : [req.session.userId]);
@@ -388,7 +388,7 @@ app.post("/api/admin/allocations", requireAdmin, requireCsrf, async (req, res, n
 app.post("/api/servers/:id/allocation", requireAdmin, requireCsrf, async (req, res, next) => {
   const client = await pool.connect();
   try {
-    if (!/^\\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid server ID." });
+    if (!/^\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid server ID." });
     const serverId = Number(req.params.id);
     const allocationId = req.body.allocationId === "" || req.body.allocationId == null ? null : Number(req.body.allocationId);
     if (allocationId !== null && (!Number.isSafeInteger(allocationId) || allocationId < 1)) return res.status(400).json({ error: "Choose a valid allocation." });
@@ -416,7 +416,7 @@ app.post("/api/servers/:id/allocation", requireAdmin, requireCsrf, async (req, r
 
 app.patch("/api/servers/:id/config", requireAdmin, requireCsrf, async (req, res, next) => {
   try {
-    if (!/^\\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid server ID." });
+    if (!/^\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid server ID." });
     const name = typeof req.body.name === "string" ? req.body.name.trim() : "";
     const software = ["Paper", "Vanilla", "Fabric"].includes(req.body.software) ? req.body.software : "";
     const version = typeof req.body.version === "string" ? req.body.version.trim() : "";
