@@ -32,3 +32,17 @@
 .auth-security svg{color:#facc15}
 .auth-error{background:#2a1712;border-color:#79402a;color:#ffc3a8}
 .auth-footer{color:#777}
+
+
+/* FINAL LUMEN BLACK + YELLOW AUTH OVERRIDES */
+.auth-shell{background:#080808!important;color:#f5f5f5!important}
+.auth-glow-one,.auth-glow-two{background:#ffd400!important;opacity:.06!important}
+.auth-card{background:#111!important;border:1px solid #333!important;box-shadow:0 24px 80px #000b!important}
+.auth-brand-icon{background:#ffd400!important;color:#080808!important;box-shadow:none!important}
+.auth-brand strong span,.auth-kicker,.auth-switch button{color:#ffd400!important}
+.auth-form input{background:#090909!important;border-color:#333!important;color:#fff!important}
+.auth-form input:focus{border-color:#ffd400!important;box-shadow:0 0 0 3px #ffd40022!important}
+.auth-submit{background:#ffd400!important;color:#080808!important;border-color:#ffd400!important;box-shadow:none!important}
+.auth-security svg{color:#ffd400!important}
+.auth-error{background:#291b00!important;border-color:#806300!important;color:#ffe08a!important}
+.auth-footer{color:#777!important}
