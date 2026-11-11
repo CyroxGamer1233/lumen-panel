@@ -11,7 +11,7 @@ An original, Pterodactyl-style Minecraft hosting control panel with a custom Lum
 - Admin-only user and node management APIs
 - Secure node registry: one-time node token issuance, SHA-256 token-hash storage, disable support, and authenticated heartbeat endpoint
 - Express API health endpoint and Vite development proxy
-- Server metrics and console remain demo-only until a real Linux node agent is installed
+- Server inventory is PostgreSQL-backed; live metrics, console, file access, and power controls are not available yet
 
 ## Requirements
 
@@ -124,7 +124,7 @@ The Lumen API owns authentication, authorization, server metadata and panel busi
 
 ## Important limitations
 
-Authentication requires a reachable PostgreSQL database and valid environment variables. The dashboard's server metrics and server controls are still illustrative demo data. Real Minecraft hosting requires a separate Linux host with a properly installed and secured Wings node, followed by authenticated API integration.
+Authentication requires a reachable PostgreSQL database and valid environment variables. Live metrics and server controls are not available yet; the panel does not currently provision or start Minecraft. Real hosting requires a separate Linux host with a properly installed and secured node integration, followed by authenticated API integration.
 
 
 ## Server inventory foundation (Milestone 7)
