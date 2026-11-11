@@ -155,3 +155,11 @@ Authentication requires a reachable PostgreSQL database and valid environment va
 - Console and player panels clearly show that live data is not connected yet; they do not display fabricated server output or player counts.
 - Resource values are configured limits, not live usage measurements.
 - The dashboard is a presentation layer for saved configuration only. It does not start, stop, or otherwise control a Minecraft process.
+
+
+## Server power control readiness (Milestone 10)
+
+- The server details page includes Start, Restart, and Stop request controls.
+- Requests require an authenticated session, CSRF validation, a valid server ID, and server ownership (or administrator access).
+- The API currently returns `RUNTIME_NOT_CONNECTED` with `executed: false`. This is an intentional safety gate: no Minecraft process is started, stopped, or restarted.
+- A trusted runtime and node-side authorization protocol must be implemented and reviewed before these controls can execute real power actions.
