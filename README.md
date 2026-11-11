@@ -136,3 +136,13 @@ Authentication requires a reachable PostgreSQL database and valid environment va
 - The API returns only the signed-in user's servers unless the account is an administrator.
 - New records use the `pending` status. Creating a record does not provision files, download a server jar, create a container, or start Minecraft.
 - Power controls, console, file manager, player counts, and live resource usage remain unavailable until a properly secured production node integration is implemented.
+
+## Server configuration and allocations (Milestone 8)
+
+- Administrators can edit server name, Minecraft software, game version, memory limit, and storage limit.
+- Administrators can add an allocation to an enabled node using a valid IPv4/IPv6 bind address and TCP port (1024–65535).
+- The database prevents duplicate IP/port pairs on the same node and prevents one allocation from being assigned to multiple servers.
+- A server can only use an allocation belonging to its assigned node.
+- Allocation records are configuration metadata only. Adding an allocation does not open a firewall port, bind a socket, create a container, or start Minecraft.
+- Use an address and port that are actually configured and available on the host. Do not assume that entering an IP/port here makes it reachable from the internet.
+- This milestone does not add live server power controls, console access, file access, or resource telemetry.
