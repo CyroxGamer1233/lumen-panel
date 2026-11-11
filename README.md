@@ -125,3 +125,14 @@ The Lumen API owns authentication, authorization, server metadata and panel busi
 ## Important limitations
 
 Authentication requires a reachable PostgreSQL database and valid environment variables. The dashboard's server metrics and server controls are still illustrative demo data. Real Minecraft hosting requires a separate Linux host with a properly installed and secured Wings node, followed by authenticated API integration.
+
+
+## Server inventory foundation (Milestone 7)
+
+- Admins can create server configuration records from the Servers page.
+- Server records are stored in PostgreSQL and associated with their account and, optionally, an enabled node.
+- Supported initial software choices: Paper, Vanilla, and Fabric.
+- Memory and storage values are validated by the API; game versions are validated as short version strings.
+- The API returns only the signed-in user's servers unless the account is an administrator.
+- New records use the `pending` status. Creating a record does not provision files, download a server jar, create a container, or start Minecraft.
+- Power controls, console, file manager, player counts, and live resource usage remain unavailable until a properly secured production node integration is implemented.
