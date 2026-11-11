@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import AuthScreen from "./AuthScreen.jsx";
 import {
   Activity, ArrowDownToLine, ArrowUpRight, Bell, Box, ChevronDown,
   CircleHelp, Cloud, Command, Cpu, Database, FileText, Gauge, HardDrive,
@@ -22,6 +23,9 @@ function App() {
   const [apiStatus, setApiStatus] = useState("checking");
   const [serverState, setServerState] = useState("Running");
   const [notice, setNotice] = useState("");
+  const [authStatus, setAuthStatus] = useState("checking");
+  const [user, setUser] = useState(null);
+  const [csrfToken, setCsrfToken] = useState("");
 
   useEffect(() => {
     fetch("/api/health")
@@ -30,7 +34,7 @@ function App() {
       .catch(() => setApiStatus("offline"));
   }, []);
 
-  const choose = (name) => {
+  const handleAuthenticated = (nextUser, nextCsrfToken) => {\n    setUser(nextUser);\n    setCsrfToken(nextCsrfToken || "");\n    setAuthStatus("signed-in");\n  };\n\n  const signOut = async () => {\n    try {\n      await fetch("/api/auth/logout", { method: "POST", credentials: "include", headers: { "X-CSRF-Token": csrfToken } });\n    } finally {\n      setUser(null);\n      setCsrfToken("");\n      setAuthStatus("signed-out");\n    }\n  };\n\n  if (authStatus === "checking") return <div className="auth-shell"><div className="auth-brand"><div className="auth-brand-icon"><Zap size={22}/></div><strong>LUMEN.</strong></div></div>;\n  if (authStatus !== "signed-in") return <AuthScreen onAuthenticated={handleAuthenticated} />;\n\n  const choose = (name) => {
     setActive(name);
     setMenuOpen(false);
     if (name !== "Overview") setNotice(name + " section is coming in the next build.");
@@ -65,14 +69,14 @@ function App() {
         </div>)}
         <div className="sidebar-bottom">
           <div className="help-card"><div className="help-icon"><LifeBuoy size={17}/></div><b>Need a hand?</b><p>Explore the docs and learn your way around Lumen.</p><button onClick={() => setNotice("Documentation will be added soon.")}>Open documentation <ArrowUpRight size={13}/></button></div>
-          <div className="profile-row"><div className="profile-avatar">S</div><div className="profile-copy"><b>Workspace Owner</b><small>Administrator</small></div><MoreHorizontal size={18}/></div>
+          <div className="profile-row"><div className="profile-avatar">S</div><div className="profile-copy"><b>{user?.name || "Lumen user"}</b><small>{user?.role === "admin" ? "Administrator" : "Member"}</small></div><MoreHorizontal size={18}/></div>
         </div>
       </aside>
 
       <main className="main-area">
         <header className="topbar">
           <div className="top-left"><button className="icon-button menu-toggle" onClick={() => setMenuOpen(!menuOpen)}><Menu size={19}/></button><span className="crumb-muted">Workspace</span><span className="crumb-sep">/</span><b>{active}</b></div>
-          <div className="top-actions"><div className="system-pill"><span className={`status-dot ${apiStatus === "online" ? "green" : apiStatus === "offline" ? "red" : ""}`}></span> API {apiStatus}</div><button className="icon-button"><Bell size={18}/><i></i></button><div className="top-avatar">S</div></div>
+          <div className="top-actions"><div className="system-pill"><span className={`status-dot ${apiStatus === "online" ? "green" : apiStatus === "offline" ? "red" : ""}`}></span> API {apiStatus}</div><button className="icon-button"><Bell size={18}/><i></i></button><button className="server-action" onClick={signOut}>Sign out</button><div className="top-avatar">{user?.name?.[0]?.toUpperCase() || "L"}</div></div>
         </header>
 
         <div className="page-content">
