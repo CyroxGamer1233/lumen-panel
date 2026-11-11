@@ -32,6 +32,8 @@ export default function App() {
   const [runtimeEvents, setRuntimeEvents] = useState([]);
   const [runtimeEventsLoading, setRuntimeEventsLoading] = useState(false);
   const [runtimeEventsError, setRuntimeEventsError] = useState("");
+  const [runtimeEventsHasMore, setRuntimeEventsHasMore] = useState(false);
+  const [runtimeEventsCursor, setRuntimeEventsCursor] = useState(null);
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
@@ -164,16 +166,24 @@ export default function App() {
     if (user?.role === "admin") { loadNodes(false); loadAllocations(); }
   }, [active, user?.role]);
 
-  const loadRuntimeEvents = async (serverId = selectedServerId) => {
-    if (!serverId) return;
-    setRuntimeEvents([]);
+  const loadRuntimeEvents = async (serverId = selectedServerId, append = false) => {
+    if (!serverId || runtimeEventsLoading) return;
+    if (!append) {
+      setRuntimeEvents([]);
+      setRuntimeEventsCursor(null);
+      setRuntimeEventsHasMore(false);
+    }
     setRuntimeEventsLoading(true);
     setRuntimeEventsError("");
     try {
-      const response = await fetch(`/api/servers/${serverId}/events`, { credentials: "include" });
+      const cursor = append ? runtimeEventsCursor : null;
+      const query = cursor ? `?before=${encodeURIComponent(cursor)}` : "";
+      const response = await fetch(`/api/servers/${serverId}/events${query}`, { credentials: "include" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not load activity history.");
-      setRuntimeEvents(data.events || []);
+      setRuntimeEvents(current => append ? [...current, ...(data.events || [])] : (data.events || []));
+      setRuntimeEventsHasMore(Boolean(data.has_more));
+      setRuntimeEventsCursor(data.next_cursor || null);
     } catch (error) {
       setRuntimeEventsError(error.message);
     } finally {
@@ -461,22 +471,25 @@ export default function App() {
                     <div><Activity size={16}/><h2>Activity history</h2></div>
                     <button type="button" className="clean-refresh-button" onClick={() => loadRuntimeEvents()} disabled={runtimeEventsLoading}>{runtimeEventsLoading ? "Loading…" : "↻ Refresh"}</button>
                   </div>
-                  <p className="clean-form-note">Latest 50 recorded runtime reports and power requests. Power requests shown as blocked were not executed.</p>
-                  {runtimeEventsError && <p className="clean-node-error">{runtimeEventsError}</p>}
-                  {runtimeEventsLoading && runtimeEvents.length === 0 ? <div className="clean-activity-empty">Loading activity…</div> : runtimeEvents.length === 0 ? <div className="clean-activity-empty">No activity recorded yet.</div> : (
-                    <div className="clean-activity-list">
-                      {runtimeEvents.map(event => (
-                        <article className="clean-activity-item" key={event.id}>
-                          <span className="clean-activity-dot" aria-hidden="true"></span>
-                          <div className="clean-activity-copy">
-                            <strong>{event.event_type === "runtime_status" ? `Runtime status · ${event.status}` : `Power request · ${event.status}`}</strong>
-                            <p>{event.message || (event.event_type === "runtime_status" ? "Node reported a lifecycle status." : "Power request recorded.")}</p>
-                            <small>{new Date(event.created_at).toLocaleString()}{event.node_name ? ` · ${event.node_name}` : ""}{event.actor_name ? ` · ${event.actor_name}` : ""}</small>
-                          </div>
-                          <span className="clean-activity-kind">{event.event_type === "runtime_status" ? "NODE" : "PANEL"}</span>
-                        </article>
-                      ))}
-                    </div>
+                  <p className="clean-form-note">Newest events first · 50 per page. Power requests shown as blocked were not executed.</p>
+                  {runtimeEventsError && <p className="clean-node-error" role="alert">{runtimeEventsError}</p>}
+                  {runtimeEventsLoading && runtimeEvents.length === 0 ? <div className="clean-activity-empty" role="status">Loading activity…</div> : runtimeEvents.length === 0 ? <div className="clean-activity-empty">No activity recorded yet.</div> : (
+                    <>
+                      <div className="clean-activity-list">
+                        {runtimeEvents.map(event => (
+                          <article className="clean-activity-item" key={event.id}>
+                            <span className="clean-activity-dot" aria-hidden="true"></span>
+                            <div className="clean-activity-copy">
+                              <strong>{event.event_type === "runtime_status" ? `Runtime status · ${event.status}` : `Power request · ${event.status}`}</strong>
+                              <p>{event.message || (event.event_type === "runtime_status" ? "Node reported a lifecycle status." : "Power request recorded.")}</p>
+                              <small>{new Date(event.created_at).toLocaleString()}{event.node_name ? ` · ${event.node_name}` : ""}{event.actor_name ? ` · ${event.actor_name}` : ""}</small>
+                            </div>
+                            <span className="clean-activity-kind">{event.event_type === "runtime_status" ? "NODE" : "PANEL"}</span>
+                          </article>
+                        ))}
+                      </div>
+                      {runtimeEventsHasMore && <div className="clean-activity-more"><button type="button" className="clean-refresh-button" onClick={() => loadRuntimeEvents(selectedServerId, true)} disabled={runtimeEventsLoading}>{runtimeEventsLoading ? "Loading…" : "Load older events"}</button></div>}
+                    </>
                   )}
                 </section>
                 <div className="clean-server-detail-columns">
