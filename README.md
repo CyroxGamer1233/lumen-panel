@@ -188,7 +188,7 @@ Authentication requires a reachable PostgreSQL database and valid environment va
 
 - Added an append-only per-server activity table for node-reported runtime status changes and panel power requests.
 - Every accepted node status report is recorded with its node, status, optional message, and timestamp, while the current-status table continues to store the latest observation.
-- Authenticated server owners and administrators can retrieve the latest 50 events for a server with `GET /api/servers/:id/events`.
+- Authenticated server owners and administrators can retrieve server events with `GET /api/servers/:id/events`, newest first in cursor-paginated pages of 50 (`before` cursor).
 - Power requests are recorded as panel activity, but continue to return `RUNTIME_NOT_CONNECTED` with `executed: false`; they do not start, stop, or restart Minecraft.
-- Server Details displays the latest event history and supports manual refresh.
+- Server Details displays event history, supports manual refresh and loading older pages; runtime observations and audit inserts are transactionally consistent.
 - The history is an audit of received reports and requests, not proof that a Minecraft process is running. The existing Codespaces node agent remains heartbeat-only and does not send runtime status events.
