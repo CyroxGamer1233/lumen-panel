@@ -427,7 +427,7 @@ app.get("/api/servers/:id/events", requireAuth, async (req, res, next) => {
     );
     if (!server.rowCount) return res.status(404).json({ error: "Server not found." });
     const before = req.query.before === undefined ? null : String(req.query.before);
-    if (before !== null && (!/^\\d+$/.test(before) || !Number.isSafeInteger(Number(before)) || Number(before) < 1)) {
+    if (before !== null && (!/^\d+$/.test(before) || BigInt(before) < 1n)) {
       return res.status(400).json({ error: "Invalid activity cursor." });
     }
     const result = await pool.query(`
