@@ -116,6 +116,23 @@ await pool.query(`
 
 await pool.query("CREATE TABLE IF NOT EXISTS nodes (id BIGSERIAL PRIMARY KEY, name VARCHAR(60) NOT NULL, token_hash CHAR(64) NOT NULL UNIQUE, enabled BOOLEAN NOT NULL DEFAULT TRUE, agent_version VARCHAR(40), last_seen_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
 
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS servers (
+    id BIGSERIAL PRIMARY KEY,
+    owner_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    node_id BIGINT REFERENCES nodes(id) ON DELETE SET NULL,
+    name VARCHAR(60) NOT NULL,
+    game VARCHAR(30) NOT NULL DEFAULT 'Minecraft Java',
+    software VARCHAR(20) NOT NULL DEFAULT 'Paper' CHECK (software IN ('Paper', 'Vanilla', 'Fabric')),
+    version VARCHAR(20) NOT NULL DEFAULT '1.21.4',
+    memory_mb INTEGER NOT NULL CHECK (memory_mb BETWEEN 512 AND 16384),
+    disk_gb INTEGER NOT NULL CHECK (disk_gb BETWEEN 1 AND 200),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'not_connected')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )
+`);
+
+
 const nodeHeartbeatLimiter = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: "draft-7", legacyHeaders: false });
 const hashNodeToken = (token) => createHash("sha256").update(token).digest("hex");
 
@@ -273,6 +290,49 @@ app.post("/api/node/heartbeat", nodeHeartbeatLimiter, requireNodeToken, async (r
     const agentVersion = typeof req.body.agentVersion === "string" ? req.body.agentVersion.trim().slice(0, 40) : null;
     await pool.query("UPDATE nodes SET last_seen_at = NOW(), agent_version = $1 WHERE id = $2 AND enabled = TRUE", [agentVersion || null, req.nodeId]);
     res.json({ accepted: true, next_heartbeat_seconds: 30 });
+  } catch (error) { next(error); }
+});
+
+app.get("/api/servers", requireAuth, async (req, res, next) => {
+  try {
+    const isAdmin = (await pool.query("SELECT role FROM users WHERE id = $1", [req.session.userId])).rows[0]?.role === "admin";
+    const result = await pool.query(`
+      SELECT s.id, s.name, s.game, s.software, s.version, s.memory_mb, s.disk_gb,
+        s.status, s.created_at, s.node_id, n.name AS node_name,
+        CASE WHEN n.id IS NULL THEN 'unassigned' WHEN n.enabled = FALSE THEN 'disabled'
+          WHEN n.last_seen_at > NOW() - INTERVAL '90 seconds' THEN 'online' ELSE 'offline' END AS node_status
+      FROM servers s LEFT JOIN nodes n ON n.id = s.node_id
+      ${isAdmin ? "" : "WHERE s.owner_id = $1"}
+      ORDER BY s.created_at DESC
+    `, isAdmin ? [] : [req.session.userId]);
+    res.json({ servers: result.rows });
+  } catch (error) { next(error); }
+});
+
+app.post("/api/servers", requireAdmin, requireCsrf, async (req, res, next) => {
+  try {
+    const name = typeof req.body.name === "string" ? req.body.name.trim() : "";
+    const software = ["Paper", "Vanilla", "Fabric"].includes(req.body.software) ? req.body.software : "";
+    const version = typeof req.body.version === "string" ? req.body.version.trim() : "";
+    const memoryMb = Number(req.body.memoryMb);
+    const diskGb = Number(req.body.diskGb);
+    const nodeId = req.body.nodeId === "" || req.body.nodeId == null ? null : Number(req.body.nodeId);
+    if (name.length < 2 || name.length > 60) return res.status(400).json({ error: "Server name must be 2–60 characters." });
+    if (!software) return res.status(400).json({ error: "Choose valid server software." });
+    if (!/^[A-Za-z0-9._-]{1,20}$/.test(version)) return res.status(400).json({ error: "Enter a valid game version." });
+    if (!Number.isInteger(memoryMb) || memoryMb < 512 || memoryMb > 16384) return res.status(400).json({ error: "Memory must be between 512 and 16384 MB." });
+    if (!Number.isInteger(diskGb) || diskGb < 1 || diskGb > 200) return res.status(400).json({ error: "Storage must be between 1 and 200 GB." });
+    if (nodeId !== null && (!Number.isSafeInteger(nodeId) || nodeId < 1)) return res.status(400).json({ error: "Choose a valid node." });
+    if (nodeId !== null) {
+      const node = await pool.query("SELECT id FROM nodes WHERE id = $1 AND enabled = TRUE", [nodeId]);
+      if (!node.rowCount) return res.status(400).json({ error: "Selected node is unavailable." });
+    }
+    const result = await pool.query(`
+      INSERT INTO servers (owner_id, node_id, name, software, version, memory_mb, disk_gb)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id, name, game, software, version, memory_mb, disk_gb, status, created_at, node_id
+    `, [req.session.userId, nodeId, name, software, version, memoryMb, diskGb]);
+    res.status(201).json({ server: result.rows[0] });
   } catch (error) { next(error); }
 });
 
