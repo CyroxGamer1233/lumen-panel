@@ -7,6 +7,7 @@ import connectPgSimple from "connect-pg-simple";
 import rateLimit from "express-rate-limit";
 import argon2 from "argon2";
 import pg from "pg";
+import { isIP } from "node:net";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 dotenv.config();
@@ -133,7 +134,20 @@ await pool.query(`
 `);
 
 
-const nodeHeartbeatLimiter = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: "draft-7", legacyHeaders: false });
+const nodeHeartbeatLimiter
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS allocations (
+    id BIGSERIAL PRIMARY KEY,
+    node_id BIGINT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+    ip VARCHAR(45) NOT NULL,
+    port INTEGER NOT NULL CHECK (port BETWEEN 1024 AND 65535),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (node_id, ip, port)
+  )
+`);
+await pool.query("ALTER TABLE servers ADD COLUMN IF NOT EXISTS allocation_id BIGINT REFERENCES allocations(id) ON DELETE SET NULL");
+await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS servers_allocation_id_unique ON servers(allocation_id) WHERE allocation_id IS NOT NULL");
+ = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: "draft-7", legacyHeaders: false });
 const hashNodeToken = (token) => createHash("sha256").update(token).digest("hex");
 
 const requireNodeToken = async (req, res, next) => {
@@ -333,6 +347,91 @@ app.post("/api/servers", requireAdmin, requireCsrf, async (req, res, next) => {
       RETURNING id, name, game, software, version, memory_mb, disk_gb, status, created_at, node_id
     `, [req.session.userId, nodeId, name, software, version, memoryMb, diskGb]);
     res.status(201).json({ server: result.rows[0] });
+  } catch (error) { next(error); }
+});
+
+
+app.get("/api/admin/allocations", requireAdmin, async (_req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT a.id, a.node_id, n.name AS node_name, a.ip, a.port, a.created_at,
+        s.id AS server_id, s.name AS server_name
+      FROM allocations a JOIN nodes n ON n.id = a.node_id
+      LEFT JOIN servers s ON s.allocation_id = a.id
+      ORDER BY n.name, a.port
+    `);
+    res.json({ allocations: result.rows });
+  } catch (error) { next(error); }
+});
+
+app.post("/api/admin/allocations", requireAdmin, requireCsrf, async (req, res, next) => {
+  try {
+    const nodeId = Number(req.body.nodeId);
+    const ip = typeof req.body.ip === "string" ? req.body.ip.trim() : "";
+    const port = Number(req.body.port);
+    if (!Number.isSafeInteger(nodeId) || nodeId < 1) return res.status(400).json({ error: "Choose a valid node." });
+    if (!isIP(ip)) return res.status(400).json({ error: "Enter a valid IPv4 or IPv6 address." });
+    if (!Number.isInteger(port) || port < 1024 || port > 65535) return res.status(400).json({ error: "Port must be between 1024 and 65535." });
+    const node = await pool.query("SELECT id FROM nodes WHERE id = $1 AND enabled = TRUE", [nodeId]);
+    if (!node.rowCount) return res.status(400).json({ error: "Selected node is unavailable." });
+    const result = await pool.query(
+      "INSERT INTO allocations (node_id, ip, port) VALUES ($1, $2, $3) RETURNING id, node_id, ip, port, created_at",
+      [nodeId, ip, port]
+    );
+    res.status(201).json({ allocation: result.rows[0] });
+  } catch (error) {
+    if (error.code === "23505") return res.status(409).json({ error: "This IP and port already exists on that node." });
+    next(error);
+  }
+});
+
+app.post("/api/servers/:id/allocation", requireAdmin, requireCsrf, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    if (!/^\\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid server ID." });
+    const serverId = Number(req.params.id);
+    const allocationId = req.body.allocationId === "" || req.body.allocationId == null ? null : Number(req.body.allocationId);
+    if (allocationId !== null && (!Number.isSafeInteger(allocationId) || allocationId < 1)) return res.status(400).json({ error: "Choose a valid allocation." });
+    await client.query("BEGIN");
+    const server = await client.query("SELECT id, node_id FROM servers WHERE id = $1 FOR UPDATE", [serverId]);
+    if (!server.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Server not found." }); }
+    if (allocationId !== null) {
+      const allocation = await client.query("SELECT id, node_id FROM allocations WHERE id = $1 FOR UPDATE", [allocationId]);
+      if (!allocation.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Allocation not found." }); }
+      if (String(allocation.rows[0].node_id) !== String(server.rows[0].node_id)) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "Allocation must belong to the server's assigned node." });
+      }
+      const used = await client.query("SELECT id FROM servers WHERE allocation_id = $1 AND id <> $2", [allocationId, serverId]);
+      if (used.rowCount) { await client.query("ROLLBACK"); return res.status(409).json({ error: "This allocation is already assigned." }); }
+    }
+    const updated = await client.query("UPDATE servers SET allocation_id = $1 WHERE id = $2 RETURNING id, allocation_id", [allocationId, serverId]);
+    await client.query("COMMIT");
+    res.json({ server: updated.rows[0] });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally { client.release(); }
+});
+
+app.patch("/api/servers/:id/config", requireAdmin, requireCsrf, async (req, res, next) => {
+  try {
+    if (!/^\\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid server ID." });
+    const name = typeof req.body.name === "string" ? req.body.name.trim() : "";
+    const software = ["Paper", "Vanilla", "Fabric"].includes(req.body.software) ? req.body.software : "";
+    const version = typeof req.body.version === "string" ? req.body.version.trim() : "";
+    const memoryMb = Number(req.body.memoryMb);
+    const diskGb = Number(req.body.diskGb);
+    if (name.length < 2 || name.length > 60) return res.status(400).json({ error: "Server name must be 2–60 characters." });
+    if (!software || !/^[A-Za-z0-9._-]{1,20}$/.test(version)) return res.status(400).json({ error: "Choose valid software and game version." });
+    if (!Number.isInteger(memoryMb) || memoryMb < 512 || memoryMb > 16384) return res.status(400).json({ error: "Memory must be between 512 and 16384 MB." });
+    if (!Number.isInteger(diskGb) || diskGb < 1 || diskGb > 200) return res.status(400).json({ error: "Storage must be between 1 and 200 GB." });
+    const result = await pool.query(
+      "UPDATE servers SET name = $1, software = $2, version = $3, memory_mb = $4, disk_gb = $5 WHERE id = $6 RETURNING id, name, software, version, memory_mb, disk_gb",
+      [name, software, version, memoryMb, diskGb, req.params.id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "Server not found." });
+    res.json({ server: result.rows[0] });
   } catch (error) { next(error); }
 });
 
