@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import AuthScreen from "./AuthScreen.jsx";
 import {
   Activity, ArrowDownToLine, ArrowUpRight, Bell, Box, ChevronDown,
   CircleHelp, Cloud, Command, Cpu, Database, FileText, Gauge, HardDrive,
@@ -22,13 +23,52 @@ function App() {
   const [apiStatus, setApiStatus] = useState("checking");
   const [serverState, setServerState] = useState("Running");
   const [notice, setNotice] = useState("");
+  const [authStatus, setAuthStatus] = useState("checking");
+  const [user, setUser] = useState(null);
+  const [csrfToken, setCsrfToken] = useState("");
 
   useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then(async response => {
+        if (!response.ok) throw new Error("Signed out");
+        const data = await response.json();
+        setUser(data.user);
+        setAuthStatus("signed-in");
+        const csrfResponse = await fetch("/api/auth/csrf", { credentials: "include" });
+        if (csrfResponse.ok) setCsrfToken((await csrfResponse.json()).csrfToken);
+      })
+      .catch(() => setAuthStatus("signed-out"));
+
     fetch("/api/health")
-      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(response => response.ok ? response.json() : Promise.reject())
       .then(() => setApiStatus("online"))
       .catch(() => setApiStatus("offline"));
   }, []);
+
+  const handleAuthenticated = (nextUser, nextCsrfToken) => {
+    setUser(nextUser);
+    setCsrfToken(nextCsrfToken || "");
+    setAuthStatus("signed-in");
+  };
+
+  const signOut = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        headers: { "X-CSRF-Token": csrfToken }
+      });
+    } finally {
+      setUser(null);
+      setCsrfToken("");
+      setAuthStatus("signed-out");
+    }
+  };
+
+  if (authStatus === "checking") {
+    return <div className="auth-shell"><div className="auth-brand"><div className="auth-brand-icon"><Zap size={22}/></div><strong>LUMEN.</strong></div></div>;
+  }
+  if (authStatus !== "signed-in") return <AuthScreen onAuthenticated={handleAuthenticated} />;
 
   const choose = (name) => {
     setActive(name);
@@ -65,14 +105,14 @@ function App() {
         </div>)}
         <div className="sidebar-bottom">
           <div className="help-card"><div className="help-icon"><LifeBuoy size={17}/></div><b>Need a hand?</b><p>Explore the docs and learn your way around Lumen.</p><button onClick={() => setNotice("Documentation will be added soon.")}>Open documentation <ArrowUpRight size={13}/></button></div>
-          <div className="profile-row"><div className="profile-avatar">S</div><div className="profile-copy"><b>Workspace Owner</b><small>Administrator</small></div><MoreHorizontal size={18}/></div>
+          <div className="profile-row"><div className="profile-avatar">{user?.name?.[0]?.toUpperCase() || "L"}</div><div className="profile-copy"><b>{user?.name || "Lumen user"}</b><small>{user?.role === "admin" ? "Administrator" : "Member"}</small></div><MoreHorizontal size={18}/></div>
         </div>
       </aside>
 
       <main className="main-area">
         <header className="topbar">
           <div className="top-left"><button className="icon-button menu-toggle" onClick={() => setMenuOpen(!menuOpen)}><Menu size={19}/></button><span className="crumb-muted">Workspace</span><span className="crumb-sep">/</span><b>{active}</b></div>
-          <div className="top-actions"><div className="system-pill"><span className={`status-dot ${apiStatus === "online" ? "green" : apiStatus === "offline" ? "red" : ""}`}></span> API {apiStatus}</div><button className="icon-button"><Bell size={18}/><i></i></button><div className="top-avatar">S</div></div>
+          <div className="top-actions"><div className="system-pill"><span className={`status-dot ${apiStatus === "online" ? "green" : apiStatus === "offline" ? "red" : ""}`}></span> API {apiStatus}</div><button className="icon-button"><Bell size={18}/><i></i></button><button className="server-action" onClick={signOut}>Sign out</button><div className="top-avatar">{user?.name?.[0]?.toUpperCase() || "L"}</div></div>
         </header>
 
         <div className="page-content">
@@ -97,7 +137,7 @@ function App() {
           </section>
 
           <div className="lower-grid">
-            <section className="panel-card"><div className="panel-title"><div><h2>Resource activity</h2><p>Node performance over time</p></div><button className="period-select">Last 24 hours <ChevronDown size={14}/></button></div><div className="chart-wrap"><div className="chart-y"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span></div><div className="chart"><div className="chart-grid"><i/><i/><i/><i/><i/></div><svg viewBox="0 0 600 170" preserveAspectRatio="none" aria-label="Illustrative resource usage chart"><defs><linearGradient id="area" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#8b70ff" stopOpacity=".28"/><stop offset="100%" stopColor="#8b70ff" stopOpacity="0"/></linearGradient></defs><path d="M0 125 C35 118 38 90 75 102 S125 120 150 86 S200 96 225 75 S270 91 300 65 S345 83 375 70 S425 94 450 60 S500 76 525 48 S570 63 600 38 L600 170 L0 170Z" fill="url(#area)"/><path d="M0 125 C35 118 38 90 75 102 S125 120 150 86 S200 96 225 75 S270 91 300 65 S345 83 375 70 S425 94 450 60 S500 76 525 48 S570 63 600 38" fill="none" stroke="#9a83ff" strokeWidth="2.5" vectorEffect="non-scaling-stroke"/></svg><div className="chart-x"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>Now</span></div></div></div><div className="chart-legend"><span><i className="legend-purple"/> CPU usage</span><span><i className="legend-blue"/> Memory usage</span><small>Illustrative preview data</small></div></section>
+            <section className="panel-card"><div className="panel-title"><div><h2>Resource activity</h2><p>Node performance over time</p></div><button className="period-select">Last 24 hours <ChevronDown size={14}/></button></div><div className="chart-wrap"><div className="chart-y"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span></div><div className="chart"><div className="chart-grid"><i/><i/><i/><i/><i/></div><svg viewBox="0 0 600 170" preserveAspectRatio="none" aria-label="Illustrative resource usage chart"><defs><linearGradient id="area" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#f5c400" stopOpacity=".28"/><stop offset="100%" stopColor="#f5c400" stopOpacity="0"/></linearGradient></defs><path d="M0 125 C35 118 38 90 75 102 S125 120 150 86 S200 96 225 75 S270 91 300 65 S345 83 375 70 S425 94 450 60 S500 76 525 48 S570 63 600 38 L600 170 L0 170Z" fill="url(#area)"/><path d="M0 125 C35 118 38 90 75 102 S125 120 150 86 S200 96 225 75 S270 91 300 65 S345 83 375 70 S425 94 450 60 S500 76 525 48 S570 63 600 38" fill="none" stroke="#f5c400" strokeWidth="2.5" vectorEffect="non-scaling-stroke"/></svg><div className="chart-x"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>Now</span></div></div></div><div className="chart-legend"><span><i className="legend-purple"/> CPU usage</span><span><i className="legend-blue"/> Memory usage</span><small>Illustrative preview data</small></div></section>
             <section className="panel-card activity-card"><div className="panel-title"><div><h2>Recent activity</h2><p>Latest workspace events</p></div><button className="icon-button"><MoreHorizontal size={18}/></button></div><div className="activity-list"><div className="activity-item"><div className="activity-icon green-bg"><Power size={15}/></div><div><b>Server status preview</b><p>Lumen SMP marked as {serverState.toLowerCase()}</p><small>Just now · Local demo</small></div></div><div className="activity-item"><div className="activity-icon purple-bg"><Command size={15}/></div><div><b>Workspace initialized</b><p>Lumen Panel project created</p><small>Today · Setup</small></div></div><div className="activity-item"><div className="activity-icon blue-bg"><Cloud size={15}/></div><div><b>API health check</b><p>{apiStatus === "online" ? "Backend connection successful" : "Waiting for backend connection"}</p><small>Today · System</small></div></div></div><button className="activity-link" onClick={() => choose("Activity")}>View activity log <ArrowUpRight size={14}/></button></section>
           </div>
           <footer className="footer"><span>© 2026 Lumen Panel</span><span><span className="footer-dot"></span> Built for your servers</span><span>Version 0.1.0 · Preview</span></footer>
