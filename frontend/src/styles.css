@@ -40,3 +40,27 @@ body{background:var(--lumen-black);color:#f5f5f5}
 .footer{color:#777}
 button{transition:background .15s ease,border-color .15s ease,color .15s ease}
 @media(max-width:700px){.sidebar{background:#0a0a0a;border-right:1px solid #333}}
+
+
+/* FINAL LUMEN BLACK + YELLOW OVERRIDES */
+:root{--lumen-yellow:#ffd400!important;--lumen-black:#080808!important;--lumen-panel:#111!important;--lumen-line:#303030!important}
+body,.app-shell,.main-area{background:#080808!important;color:#f5f5f5!important}
+.sidebar,.topbar,.server-bottom,.server-main{background:#0d0d0d!important;border-color:#292929!important}
+.brand-mark,.workspace-avatar,.primary-button,.auth-submit{background:#ffd400!important;color:#080808!important;border-color:#ffd400!important;box-shadow:none!important}
+.brand-name span,.help-icon,.help-card button,.nav-item.active,.nav-item:hover,.text-button,.activity-link,.eyebrow,.eyebrow-line{color:#ffd400!important}
+.eyebrow-line{background:#ffd400!important}
+.nav-item.active{background:#282200!important;box-shadow:inset 3px 0 #ffd400!important}
+.nav-item:hover{background:#1d1a08!important}
+.workspace-switch,.nav-search,.help-card,.stat-card,.panel-card,.server-card{background:#111!important;border-color:#303030!important}
+.profile-avatar,.top-avatar,.stat-icon,.game-icon,.activity-icon{background:#282200!important;color:#ffd400!important;border-color:#665500!important}
+.stat-icon.purple,.stat-icon.blue,.stat-icon.violet,.stat-icon.cyan,.purple-bg,.blue-bg{background:#282200!important;color:#ffd400!important}
+.mini-meter i,.metric-track i{background:#ffd400!important}
+.server-action.play{background:#282200!important;border-color:#8a7400!important;color:#ffd400!important}
+.period-select{background:#181818!important;border-color:#333!important;color:#eee!important}
+.notice{background:#211c00!important;border-color:#665500!important;color:#ffe36a!important}
+.server-status.running{color:#b9e878!important}
+.chart svg path[fill^="url"]{fill:rgba(255,212,0,.13)!important}
+.chart svg path[stroke]{stroke:#ffd400!important}
+.legend-purple,.legend-blue{background:#ffd400!important}
+.chart-grid i,.activity-item{border-color:#303030!important}
+button{accent-color:#ffd400}
