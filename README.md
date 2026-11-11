@@ -171,3 +171,14 @@ Authentication requires a reachable PostgreSQL database and valid environment va
 - Defines how Start/Stop/Restart requests must be authorized, queued, delivered, deduplicated, and confirmed by runtime observations.
 - This milestone is documentation and architecture only. It does not install Wings or Docker, add command execution, or enable real Minecraft power actions.
 - The existing node agent remains heartbeat-only, and the power API continues to return `RUNTIME_NOT_CONNECTED` until a separately provisioned and reviewed runtime exists.
+
+
+## Runtime status API and node health (Milestone 12)
+
+- Added [runtime status API documentation](docs/RUNTIME_STATUS_API.md).
+- Node heartbeats now return the authenticated node ID and server timestamp; the admin node list includes heartbeat age in seconds.
+- Node Details displays the heartbeat age alongside the latest heartbeat timestamp.
+- Added a node-authenticated status-report endpoint scoped to servers assigned to that node. Reports use a fixed lifecycle status allowlist and are stored with a timestamp.
+- Server inventory now exposes the latest runtime report. Reports become unavailable when the node is disabled or its heartbeat is older than 90 seconds.
+- The dashboard labels runtime state as node-reported information; a heartbeat does not prove Minecraft or Docker is running.
+- The Codespaces agent remains heartbeat-only. No process control, shell execution, Docker/Wings integration, or live Minecraft runtime is enabled.
