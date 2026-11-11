@@ -338,7 +338,7 @@ app.post("/api/node/heartbeat", nodeHeartbeatLimiter, requireNodeToken, async (r
 // never executes a power action or provisions a Minecraft process.
 app.post("/api/node/servers/:id/status", nodeHeartbeatLimiter, requireNodeToken, async (req, res, next) => {
   try {
-    if (!/^\\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid server ID." });
+    if (!/^\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid server ID." });
     const status = typeof req.body.status === "string" ? req.body.status : "";
     const allowedStatuses = ["installing", "starting", "running", "stopping", "stopped", "error"];
     if (!allowedStatuses.includes(status)) {
