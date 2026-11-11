@@ -440,6 +440,29 @@ app.patch("/api/servers/:id/config", requireAdmin, requireCsrf, async (req, res,
   } catch (error) { next(error); }
 });
 
+app.post("/api/servers/:id/power", requireAuth, requireCsrf, async (req, res, next) => {
+  try {
+    if (!/^\\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid server ID." });
+    const action = typeof req.body.action === "string" ? req.body.action : "";
+    if (!["start", "stop", "restart"].includes(action)) {
+      return res.status(400).json({ error: "Choose a valid power action." });
+    }
+    const account = await pool.query("SELECT role FROM users WHERE id = $1", [req.session.userId]);
+    const isAdmin = account.rows[0]?.role === "admin";
+    const server = await pool.query(
+      `SELECT id, owner_id, node_id FROM servers WHERE id = $1 ${isAdmin ? "" : "AND owner_id = $2"}`,
+      isAdmin ? [req.params.id] : [req.params.id, req.session.userId]
+    );
+    if (!server.rowCount) return res.status(404).json({ error: "Server not found." });
+    return res.status(503).json({
+      error: "Power controls are unavailable because no secure Minecraft runtime is connected.",
+      code: "RUNTIME_NOT_CONNECTED",
+      action,
+      executed: false
+    });
+  } catch (error) { next(error); }
+});
+
 app.get("/api/admin/users", requireAdmin, async (_req, res, next) => {
   try {
     const result = await pool.query(
