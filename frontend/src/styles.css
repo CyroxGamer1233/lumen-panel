@@ -93,3 +93,22 @@
 .lumen-clean .clean-node-status.offline{background:#352a12;color:#e6bd62}
 .lumen-clean .clean-node-status.disabled{background:#351b1b;color:#ed9292}
 @media(max-width:600px){.lumen-clean .clean-node-form-row{flex-direction:column}.lumen-clean .clean-node-form-row .clean-open-button{width:100%}.lumen-clean .clean-node-card{align-items:flex-start;flex-wrap:wrap}.lumen-clean .clean-node-card>div{flex-basis:100%}}
+
+
+/* Lumen node details — Milestone 5 */
+.lumen-clean .clean-node-open-button,.lumen-clean .clean-back-button,.lumen-clean .clean-refresh-button{border:1px solid #383c3e;background:#1b1e1f;color:#e7e9e9;border-radius:6px;padding:8px 11px;font-size:10px;font-weight:700;white-space:nowrap}
+.lumen-clean .clean-node-open-button:hover,.lumen-clean .clean-back-button:hover,.lumen-clean .clean-refresh-button:hover{border-color:#ffd400;color:#ffd400}
+.lumen-clean .clean-node-detail-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.lumen-clean .clean-node-detail-card{background:#121415;border:1px solid #292b2d;border-radius:8px;padding:20px}
+.lumen-clean .clean-node-detail-main{display:flex;align-items:center;gap:13px;padding-bottom:20px;border-bottom:1px solid #292b2d}
+.lumen-clean .clean-node-detail-main>div:nth-child(2){flex:1;min-width:0}
+.lumen-clean .clean-node-detail-main h1{font-size:19px;margin:0 0 5px;overflow-wrap:anywhere}
+.lumen-clean .clean-node-detail-main p{font-size:10px;color:#92989b;margin:0}
+.lumen-clean .clean-node-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:#292b2d;border:1px solid #292b2d;border-radius:7px;overflow:hidden;margin-top:18px}
+.lumen-clean .clean-node-detail-grid>div{background:#101213;padding:16px;min-width:0}
+.lumen-clean .clean-node-detail-grid span{display:block;color:#858d91;font-size:9px;font-weight:800;letter-spacing:.8px;margin-bottom:8px}
+.lumen-clean .clean-node-detail-grid strong{display:block;color:#eceeee;font-size:11px;line-height:1.6;overflow-wrap:anywhere}
+.lumen-clean .clean-node-detail-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px}
+.lumen-clean .clean-node-detail-footer p{font-size:10px;color:#9ba1a4;line-height:1.6;margin:0}
+.lumen-clean .clean-refresh-button:disabled{opacity:.55;cursor:wait}
+@media(max-width:600px){.lumen-clean .clean-node-detail-card{padding:14px}.lumen-clean .clean-node-detail-main{flex-wrap:wrap}.lumen-clean .clean-node-detail-main .clean-node-status{margin-left:52px}.lumen-clean .clean-node-detail-grid{grid-template-columns:1fr}.lumen-clean .clean-node-detail-footer{align-items:flex-start;flex-direction:column}.lumen-clean .clean-node-detail-heading{gap:8px}}
