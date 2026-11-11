@@ -177,30 +177,30 @@ export default function App() {
               <div className="clean-page-heading"><div><h1>Overview</h1><p>Your game servers at a glance.</p></div></div>
               <section className="stats-grid clean-stats">
                 <div className="stat-card"><div className="clean-stat-icon"><Server size={17}/></div><div className="clean-stat-label">SERVERS</div><div className="stat-value">1 <small>/ 5</small></div></div>
-                <div className="stat-card"><div className="clean-stat-icon"><Cpu size={17}/></div><div className="clean-stat-label">CPU</div><div className="stat-value">12.4<small>%</small></div><div className="mini-meter"><i style={{width:"12.4%"}}/></div></div>
-                <div className="stat-card"><div className="clean-stat-icon"><MemoryStick size={17}/></div><div className="clean-stat-label">MEMORY</div><div className="stat-value">2.1 <small>GB</small></div><div className="mini-meter"><i style={{width:"42%"}}/></div></div>
-                <div className="stat-card"><div className="clean-stat-icon"><HardDrive size={17}/></div><div className="clean-stat-label">STORAGE</div><div className="stat-value">8.6 <small>GB</small></div><div className="mini-meter"><i style={{width:"28%"}}/></div></div>
+                <div className="stat-card"><div className="clean-stat-icon"><Cpu size={17}/></div><div className="clean-stat-label">CPU</div><div className="stat-value">—</div></div>
+                <div className="stat-card"><div className="clean-stat-icon"><MemoryStick size={17}/></div><div className="clean-stat-label">MEMORY</div><div className="stat-value">—</div></div>
+                <div className="stat-card"><div className="clean-stat-icon"><HardDrive size={17}/></div><div className="clean-stat-label">STORAGE</div><div className="stat-value">—</div></div>
               </section>
               <div className="clean-section-heading"><h2>Your servers</h2><span>1 server</span></div>
               <section className="server-card clean-server-card">
                 <div className="server-main">
                   <div className="game-icon"><Server size={22}/></div>
-                  <div className="server-info"><div className="server-title-row"><h3>Lumen SMP</h3><span className="server-status stopped"><span/>Not connected</span></div><p>Minecraft Java · Paper</p><div className="server-meta"><span><Wifi size={14}/> Node not connected</span><span>0 / 10 players</span></div></div>
+                  <div className="server-info"><div className="server-title-row"><h3>Lumen SMP</h3><span className="server-status stopped"><span/>Not connected</span></div><p>Minecraft Java · Paper</p><div className="server-meta"><span><Wifi size={14}/> No node assigned</span><span>0 / 10 players</span></div></div>
                   <button className="clean-open-button" onClick={() => goTo("Servers")}>Manage <span>→</span></button>
                 </div>
               </section>
             </>
           ) : (
             <>
-              <div className="clean-page-heading"><div><h1>Lumen SMP</h1><p>Minecraft Java · Paper · 1.21.x</p></div><span className="server-status stopped"><span/>Node offline</span></div>
+              <div className="clean-page-heading"><div><h1>Lumen SMP</h1><p>Minecraft Java · Paper · 1.21.x</p></div><span className="server-status stopped"><span/>No node assigned</span></div>
               <section className="server-card clean-detail-card">
                 <div className="clean-detail-top"><div className="game-icon"><Server size={22}/></div><div><h2>Server console</h2><p>Connect a Linux node to enable server controls.</p></div></div>
                 <div className="clean-console"><div className="clean-console-bar"><span/><span/><span/><b>CONSOLE</b></div><div className="clean-console-body"><Terminal size={22}/><strong>No node connected</strong><p>Console output will appear here when a node is connected.</p></div></div>
               </section>
               <section className="clean-resource-grid">
-                <div className="stat-card"><div className="clean-stat-icon"><Cpu size={17}/></div><div className="clean-stat-label">CPU USAGE</div><div className="stat-value">12<small>%</small></div></div>
-                <div className="stat-card"><div className="clean-stat-icon"><MemoryStick size={17}/></div><div className="clean-stat-label">MEMORY</div><div className="stat-value">1.2 <small>/ 3 GB</small></div></div>
-                <div className="stat-card"><div className="clean-stat-icon"><Activity size={17}/></div><div className="clean-stat-label">PLAYERS</div><div className="stat-value">0 <small>/ 10</small></div></div>
+                <div className="stat-card"><div className="clean-stat-icon"><Cpu size={17}/></div><div className="clean-stat-label">CPU USAGE</div><div className="stat-value">—</div></div>
+                <div className="stat-card"><div className="clean-stat-icon"><MemoryStick size={17}/></div><div className="clean-stat-label">MEMORY</div><div className="stat-value">—</div></div>
+                <div className="stat-card"><div className="clean-stat-icon"><Activity size={17}/></div><div className="clean-stat-label">PLAYERS</div><div className="stat-value">—</div></div>
               </section>
             </>
           )}
