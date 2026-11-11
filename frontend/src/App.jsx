@@ -354,6 +354,7 @@ export default function App() {
                       <div><span>NODE ID</span><strong>#{node.id}</strong></div>
                       <div><span>AGENT VERSION</span><strong>{node.agent_version || "Not detected"}</strong></div>
                       <div><span>LAST HEARTBEAT</span><strong>{node.last_seen_at ? new Date(node.last_seen_at).toLocaleString() : "Never connected"}</strong></div>
+                      <div><span>HEARTBEAT AGE</span><strong>{node.heartbeat_age_seconds == null ? "—" : node.heartbeat_age_seconds + "s ago"}</strong></div>
                       <div><span>CREATED</span><strong>{node.created_at ? new Date(node.created_at).toLocaleString() : "—"}</strong></div>
                     </div>
                     <div className="clean-node-detail-footer">
