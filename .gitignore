@@ -4,3 +4,4 @@ backend/.env
 .env
 .DS_Store
 *.log
+node-agent/.env
