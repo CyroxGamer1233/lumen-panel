@@ -158,3 +158,38 @@
 .lumen-clean .clean-edit-config button{min-height:34px}
 @media(max-width:700px){.lumen-clean .clean-allocation-form{grid-template-columns:1fr 1fr}.lumen-clean .clean-allocation-form button{grid-column:1/-1}.lumen-clean .clean-allocation-list>div{grid-template-columns:1fr 1fr}.lumen-clean .clean-allocation-list small{grid-column:1/-1}.lumen-clean .clean-edit-config{grid-template-columns:1fr 1fr}}
 @media(max-width:420px){.lumen-clean .clean-allocation-form,.lumen-clean .clean-edit-config{grid-template-columns:1fr}.lumen-clean .clean-allocation-form button{grid-column:auto}.lumen-clean .clean-assign-row{flex-direction:column}}
+
+
+
+/* Individual server dashboard — Milestone 9 */
+.lumen-clean .clean-server-detail-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.lumen-clean .clean-server-id{font-size:9px;letter-spacing:1px;font-weight:800;color:#858d91}
+.lumen-clean .clean-server-hero{background:#121415;border:1px solid #292b2d;border-radius:8px;padding:19px}
+.lumen-clean .clean-server-hero-main{display:flex;align-items:center;gap:13px;padding-bottom:17px;border-bottom:1px solid #292b2d}
+.lumen-clean .clean-server-hero-copy{flex:1;min-width:0}
+.lumen-clean .clean-server-hero-copy h1{font-size:20px;margin:0 0 5px;overflow-wrap:anywhere}
+.lumen-clean .clean-server-hero-copy p{font-size:10px;color:#92989b;margin:0}
+.lumen-clean .clean-server-detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:#292b2d;border:1px solid #292b2d;border-radius:7px;overflow:hidden;margin-top:17px}
+.lumen-clean .clean-server-detail-grid>div{background:#101213;padding:13px;min-width:0}
+.lumen-clean .clean-server-detail-grid span{display:block;color:#858d91;font-size:8px;font-weight:800;letter-spacing:.8px;margin-bottom:7px}
+.lumen-clean .clean-server-detail-grid strong{display:block;color:#eceeee;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+.lumen-clean .clean-server-runtime-note{font-size:9px;color:#d8bd50;margin:13px 0 0}
+.lumen-clean .clean-server-detail-columns{display:grid;grid-template-columns:1.4fr 1fr;gap:12px;margin-top:13px}
+.lumen-clean .clean-server-console,.lumen-clean .clean-server-players,.lumen-clean .clean-server-resources{background:#121415;border:1px solid #292b2d;border-radius:8px;padding:16px;min-width:0}
+.lumen-clean .clean-server-panel-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:12px;border-bottom:1px solid #292b2d}
+.lumen-clean .clean-server-panel-heading>div{display:flex;align-items:center;gap:8px;color:#ffd400}
+.lumen-clean .clean-server-panel-heading h2{font-size:12px;color:#f0f1f1;margin:0}
+.lumen-clean .clean-server-panel-heading>span{font-size:8px;font-weight:800;letter-spacing:.6px;color:#d8bd50}
+.lumen-clean .clean-console-placeholder,.lumen-clean .clean-player-empty{min-height:155px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;color:#777f83;padding:18px}
+.lumen-clean .clean-console-placeholder>svg{color:#ffd400}
+.lumen-clean .clean-console-placeholder strong,.lumen-clean .clean-player-empty strong{font-size:10px;color:#cbd0d2}
+.lumen-clean .clean-console-placeholder p,.lumen-clean .clean-player-empty p{max-width:270px;font-size:9px;line-height:1.6;color:#858d91;margin:0}
+.lumen-clean .clean-server-resources{margin-top:13px}
+.lumen-clean .clean-resource-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:13px}
+.lumen-clean .clean-resource-grid>div{background:#0d0f10;border:1px solid #292b2d;border-radius:6px;padding:13px;min-width:0}
+.lumen-clean .clean-resource-grid span{display:flex;align-items:center;gap:7px;color:#92989b;font-size:8px;font-weight:800;letter-spacing:.5px}
+.lumen-clean .clean-resource-grid span svg{color:#ffd400}
+.lumen-clean .clean-resource-grid strong{display:block;font-size:18px;margin:10px 0 4px;color:#f1f2f2}
+.lumen-clean .clean-resource-grid small{font-size:8px;color:#777f83}
+@media(max-width:850px){.lumen-clean .clean-server-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lumen-clean .clean-server-detail-columns{grid-template-columns:1fr}}
+@media(max-width:600px){.lumen-clean .clean-server-hero{padding:13px}.lumen-clean .clean-server-hero-main{flex-wrap:wrap}.lumen-clean .clean-server-hero-main .clean-node-status{margin-left:52px}.lumen-clean .clean-server-detail-heading{gap:8px}.lumen-clean .clean-resource-grid{grid-template-columns:1fr}}
