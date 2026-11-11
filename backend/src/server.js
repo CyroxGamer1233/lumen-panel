@@ -405,7 +405,7 @@ app.get("/api/servers", requireAuth, async (req, res, next) => {
 
 app.get("/api/servers/:id/events", requireAuth, async (req, res, next) => {
   try {
-    if (!/^\\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid server ID." });
+    if (!/^\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid server ID." });
     const account = await pool.query("SELECT role FROM users WHERE id = $1", [req.session.userId]);
     const isAdmin = account.rows[0]?.role === "admin";
     const server = await pool.query(
