@@ -371,7 +371,7 @@ app.get("/api/servers", requireAuth, async (req, res, next) => {
         CASE WHEN n.id IS NULL THEN 'unassigned' WHEN n.enabled = FALSE THEN 'disabled'
           WHEN n.last_seen_at > NOW() - INTERVAL '90 seconds' THEN 'online' ELSE 'offline' END AS node_status,
         CASE WHEN rs.server_id IS NULL THEN 'not_reported'
-          WHEN n.last_seen_at <= NOW() - INTERVAL '90 seconds' OR n.last_seen_at IS NULL THEN 'unavailable'
+          WHEN n.enabled = FALSE OR n.last_seen_at <= NOW() - INTERVAL '90 seconds' OR n.last_seen_at IS NULL THEN 'unavailable'
           ELSE rs.status END AS runtime_status,
         rs.message AS runtime_message, rs.reported_at AS runtime_reported_at
       FROM servers s
