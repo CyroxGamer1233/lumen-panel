@@ -81,6 +81,19 @@ const requireAuth = (req, res, next) => {
   next();
 };
 
+const requireAdmin = async (req, res, next) => {
+  try {
+    if (!req.session.userId) return res.status(401).json({ error: "Authentication required." });
+    const result = await pool.query("SELECT role FROM users WHERE id = $1", [req.session.userId]);
+    if (!result.rowCount || result.rows[0].role !== "admin") {
+      return res.status(403).json({ error: "Administrator access required." });
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
 const publicUser = (user) => ({
   id: user.id,
   name: user.name,
@@ -209,6 +222,17 @@ app.post("/api/auth/logout", requireAuth, requireCsrf, (req, res, next) => {
     res.clearCookie("lumen.sid", { httpOnly: true, secure: isProduction, sameSite: "lax" });
     res.status(204).end();
   });
+});
+
+app.get("/api/admin/users", requireAdmin, async (_req, res, next) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC LIMIT 100"
+    );
+    res.json({ users: result.rows });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get("/api/overview", requireAuth, (_req, res) => {
