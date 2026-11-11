@@ -107,7 +107,7 @@ Node API:
 - `POST /api/node/heartbeat` — authenticated node heartbeat. Send the node token as `Authorization: Bearer lmn_node_...` and an optional `{ "agentVersion": "0.1.0" }` JSON body.
 - A node is shown as online for 90 seconds after its latest heartbeat. Heartbeats are rate-limited.
 
-**Token safety:** the full node token is returned only when the node is created. The database stores only its SHA-256 hash. Keep the token on the Linux node in a root-readable environment file; never put it in React, browser storage, screenshots, Git commits, or chat. Disabling a node immediately prevents further heartbeats.
+**Token safety:** the full node token is returned only when the node is created. The database stores only its SHA-256 hash. The admin receives the token once during node creation so it can be provisioned onto the Linux host. Do not hard-code it in frontend source, persist it in browser storage, or share it in screenshots, Git commits, or chat. Store it on the Linux node in a root-readable environment file. Disabling a node immediately prevents further heartbeats.
 
 **Current limitation:** no node agent is included yet, so nodes remain offline until a trusted agent is installed and configured. The heartbeat endpoint only records presence and agent version; it does not run shell commands, control Docker, or start Minecraft servers. Real server power controls, console streaming, file access, and live metrics are a later milestone.
 
