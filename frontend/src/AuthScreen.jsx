@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ShieldCheck, Zap, Eye, EyeOff } from "lucide-react";
+import { Zap, Eye, EyeOff } from "lucide-react";
 import "./auth.css";
 
 export default function AuthScreen({ onAuthenticated }) {
@@ -45,9 +45,9 @@ export default function AuthScreen({ onAuthenticated }) {
           <div><strong>LUMEN<span>.</span></strong><small>CONTROL CENTER</small></div>
         </div>
         <div className="auth-heading">
-          <div className="auth-kicker"><ShieldCheck size={14} /> SECURE WORKSPACE ACCESS</div>
+          
           <h1>{mode === "login" ? "Welcome back." : "Create your account."}</h1>
-          <p>{mode === "login" ? "Sign in to manage your Lumen workspace." : "Set up your personal Lumen Panel account."}</p>
+          
         </div>
         <form onSubmit={submit} className="auth-form">
           {mode === "register" && <label>Your name<input autoComplete="name" value={name} onChange={e => setName(e.target.value)} minLength={2} maxLength={60} required placeholder="Enter your name" /></label>}
@@ -60,9 +60,9 @@ export default function AuthScreen({ onAuthenticated }) {
           {mode === "login" ? "New to Lumen?" : "Already have an account?"}
           <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }}> {mode === "login" ? "Create an account" : "Sign in"}</button>
         </div>
-        <div className="auth-security"><ShieldCheck size={14}/> Protected with encrypted password hashing and secure sessions</div>
+        
       </section>
-      <div className="auth-footer">© 2026 Lumen Panel <span>·</span> Your servers, your control.</div>
+      
     </main>
   );
 }
