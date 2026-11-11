@@ -144,7 +144,7 @@ app.post("/api/auth/register", authLimiter, requireCsrf, async (req, res, next) 
     const password = typeof req.body.password === "string" ? req.body.password : "";
 
     if (name.length < 2 || name.length > 60) return res.status(400).json({ error: "Name must be 2–60 characters." });
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || email.length > 254) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
       return res.status(400).json({ error: "Enter a valid email address." });
     }
     if (password.length < 12 || password.length > 128) {
