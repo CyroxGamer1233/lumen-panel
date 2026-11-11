@@ -18,6 +18,7 @@ export default function App() {
   const [nodeRefreshing, setNodeRefreshing] = useState(false);
   const [nodesUpdatedAt, setNodesUpdatedAt] = useState(null);
   const [servers, setServers] = useState([]);
+  const [selectedServerId, setSelectedServerId] = useState(null);
   const [serversLoading, setServersLoading] = useState(false);
   const [serverError, setServerError] = useState("");
   const [serverDraft, setServerDraft] = useState({ name: "", software: "Paper", version: "1.21.4", memoryMb: "2048", diskGb: "10", nodeId: "" });
@@ -357,11 +358,67 @@ export default function App() {
                   <div className="server-main">
                     <div className="game-icon"><Server size={22}/></div>
                     <div className="server-info"><div className="server-title-row"><h3>{server.name}</h3><span className="server-status stopped"><span/>{server.status === "pending" ? "Pending setup" : server.status}</span></div><p>{server.game} · {server.software} · {server.version}</p><div className="server-meta"><span><Wifi size={14}/> {server.node_name || "No node assigned"}</span><span>{server.memory_mb} MB RAM · {server.disk_gb} GB</span></div></div>
-                    <button className="clean-open-button" onClick={() => goTo("Servers")}>Manage <span>→</span></button>
+                    <button className="clean-open-button" onClick={() => { setSelectedServerId(server.id); goTo("Server Details"); }}>Manage <span>→</span></button>
                   </div>
                 </section>
               ))}
             </>
+          ) : active === "Server Details" ? (
+            (() => {
+              const server = servers.find(item => String(item.id) === String(selectedServerId));
+              if (!server) return <>
+                <div className="clean-page-heading"><div><h1>Server not found</h1><p>It may have been removed or is not available to this account.</p></div></div>
+                <button className="clean-back-button" onClick={() => goTo("Servers")}>← Back to servers</button>
+              </>;
+              const serverStatus = server.status === "pending" ? "Pending setup" : server.status;
+              return <>
+                <div className="clean-server-detail-heading">
+                  <button type="button" className="clean-back-button" onClick={() => goTo("Servers")}>← Back to servers</button>
+                  <span className="clean-server-id">SERVER #{server.id}</span>
+                </div>
+                <section className="server-card clean-server-hero">
+                  <div className="clean-server-hero-main">
+                    <div className="game-icon"><Server size={23}/></div>
+                    <div className="clean-server-hero-copy">
+                      <h1>{server.name}</h1>
+                      <p>{server.game || "Minecraft Java"} · {server.software} · {server.version}</p>
+                    </div>
+                    <span className="clean-node-status offline">{serverStatus}</span>
+                  </div>
+                  <div className="clean-server-detail-grid">
+                    <div><span>NODE</span><strong>{server.node_name || "Not assigned"}</strong></div>
+                    <div><span>ALLOCATION</span><strong>{server.allocation_ip ? `${server.allocation_ip}:${server.allocation_port}` : "Not assigned"}</strong></div>
+                    <div><span>MEMORY LIMIT</span><strong>{Number(server.memory_mb).toLocaleString()} MB</strong></div>
+                    <div><span>STORAGE QUOTA</span><strong>{server.disk_gb} GB</strong></div>
+                  </div>
+                  <p className="clean-server-runtime-note">This server is a saved configuration. A Minecraft runtime is not connected yet.</p>
+                </section>
+                <div className="clean-server-detail-columns">
+                  <section className="server-card clean-server-console">
+                    <div className="clean-server-panel-heading"><div><Terminal size={16}/><h2>Console</h2></div><span>NOT CONNECTED</span></div>
+                    <div className="clean-console-placeholder">
+                      <Terminal size={25}/>
+                      <strong>Console unavailable</strong>
+                      <p>Live console output will appear here after secure server runtime integration.</p>
+                    </div>
+                  </section>
+                  <section className="server-card clean-server-players">
+                    <div className="clean-server-panel-heading"><div><Activity size={16}/><h2>Players</h2></div><span>LIVE DATA PENDING</span></div>
+                    <div className="clean-player-empty">
+                      <strong>No player data yet</strong>
+                      <p>Online players and player slots will be shown when the Minecraft server is connected.</p>
+                    </div>
+                  </section>
+                </div>
+                <section className="server-card clean-server-resources">
+                  <div className="clean-server-panel-heading"><div><Cpu size={16}/><h2>Resource limits</h2></div><span>CONFIGURED VALUES</span></div>
+                  <div className="clean-resource-grid">
+                    <div><span><MemoryStick size={14}/> MEMORY ALLOCATION</span><strong>{Number(server.memory_mb).toLocaleString()} MB</strong><small>Configured limit · usage not connected</small></div>
+                    <div><span><HardDrive size={14}/> STORAGE QUOTA</span><strong>{server.disk_gb} GB</strong><small>Configured limit · usage not connected</small></div>
+                  </div>
+                </section>
+              </>;
+            })()
           ) : active === "Servers" ? (
             <>
               <div className="clean-page-heading"><div><h1>Servers</h1><p>Your Minecraft server inventory.</p></div><span className="clean-server-count">{servers.length} total</span></div>
@@ -396,6 +453,7 @@ export default function App() {
                   <div className="game-icon"><Server size={21}/></div>
                   <div className="clean-managed-server-main"><strong>{server.name}</strong><p>Minecraft Java · {server.software} · {server.version}</p><small>{server.node_name || "No node assigned"} · {server.memory_mb} MB RAM · {server.disk_gb} GB storage</small><small>{server.allocation_ip ? `Allocation ${server.allocation_ip}:${server.allocation_port}` : "No port allocation"}</small></div>
                   <span className="clean-node-status offline">{server.status === "pending" ? "PENDING" : server.status}</span>
+                  <button type="button" className="clean-node-open-button" onClick={() => { setSelectedServerId(server.id); goTo("Server Details"); }}>Details →</button>
                   {user?.role === "admin" && <div className="clean-server-admin-actions">
                     <div className="clean-assign-row"><select value={allocationChoices[server.id] ?? (server.allocation_id ? String(server.allocation_id) : "")} onChange={event => setAllocationChoices({ ...allocationChoices, [server.id]: event.target.value })}><option value="">No allocation</option>{allocations.filter(item => String(item.node_id) === String(server.node_id) && (!item.server_id || String(item.server_id) === String(server.id))).map(item => <option key={item.id} value={item.id}>{item.ip}:{item.port} {item.server_id ? "(assigned)" : ""}</option>)}</select><button type="button" className="clean-node-open-button" onClick={() => assignAllocation(server.id)}>Save port</button></div>
                     {editingServerId === server.id ? <form className="clean-edit-config" onSubmit={event => saveServerConfig(event, server.id)}>
