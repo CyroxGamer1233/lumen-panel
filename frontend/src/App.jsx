@@ -166,6 +166,7 @@ export default function App() {
 
   const loadRuntimeEvents = async (serverId = selectedServerId) => {
     if (!serverId) return;
+    setRuntimeEvents([]);
     setRuntimeEventsLoading(true);
     setRuntimeEventsError("");
     try {
