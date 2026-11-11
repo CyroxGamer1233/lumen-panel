@@ -393,6 +393,12 @@ export default function App() {
                 <button className="clean-back-button" onClick={() => goTo("Servers")}>← Back to servers</button>
               </>;
               const serverStatus = server.status === "pending" ? "Pending setup" : server.status;
+              const runtimeStatus = server.runtime_status || "not_reported";
+              const runtimeStatusLabel = {
+                not_reported: "Not reported", unavailable: "Unavailable", installing: "Installing",
+                starting: "Starting", running: "Reported running", stopping: "Stopping",
+                stopped: "Reported stopped", error: "Runtime error"
+              }[runtimeStatus] || "Unknown";
               return <>
                 <div className="clean-server-detail-heading">
                   <button type="button" className="clean-back-button" onClick={() => goTo("Servers")}>← Back to servers</button>
@@ -405,15 +411,16 @@ export default function App() {
                       <h1>{server.name}</h1>
                       <p>{server.game || "Minecraft Java"} · {server.software} · {server.version}</p>
                     </div>
-                    <span className="clean-node-status offline">{serverStatus}</span>
+                    <span className="clean-node-status offline">{runtimeStatusLabel}</span>
                   </div>
                   <div className="clean-server-detail-grid">
                     <div><span>NODE</span><strong>{server.node_name || "Not assigned"}</strong></div>
-                    <div><span>ALLOCATION</span><strong>{server.allocation_ip ? `${server.allocation_ip}:${server.allocation_port}` : "Not assigned"}</strong></div>
+                    <div><span>ALLOCATION</span><strong>{server.allocation_ip ? server.allocation_ip + ":" + server.allocation_port : "Not assigned"}</strong></div>
                     <div><span>MEMORY LIMIT</span><strong>{Number(server.memory_mb).toLocaleString()} MB</strong></div>
                     <div><span>STORAGE QUOTA</span><strong>{server.disk_gb} GB</strong></div>
+                    <div><span>CONFIGURATION</span><strong>{serverStatus}</strong></div>
                   </div>
-                  <p className="clean-server-runtime-note">This server is a saved configuration. A Minecraft runtime is not connected yet.</p>
+                  <p className="clean-server-runtime-note">Runtime status is reported by the assigned node and is informational only. {server.runtime_reported_at ? "Last report: " + new Date(server.runtime_reported_at).toLocaleString() + ". " : "No runtime status report has been received. "}{server.runtime_message ? "Node message: " + server.runtime_message : ""}</p>
                 </section>
                 <section className="server-card clean-power-panel">
                   <div className="clean-server-panel-heading"><div><Zap size={16}/><h2>Power controls</h2></div><span>RUNTIME OFFLINE</span></div>
