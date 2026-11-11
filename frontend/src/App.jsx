@@ -17,6 +17,10 @@ export default function App() {
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [nodeRefreshing, setNodeRefreshing] = useState(false);
   const [nodesUpdatedAt, setNodesUpdatedAt] = useState(null);
+  const [servers, setServers] = useState([]);
+  const [serversLoading, setServersLoading] = useState(false);
+  const [serverError, setServerError] = useState("");
+  const [serverDraft, setServerDraft] = useState({ name: "", software: "Paper", version: "1.21.4", memoryMb: "2048", diskGb: "10", nodeId: "" });
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
@@ -60,6 +64,51 @@ export default function App() {
     const timer = window.setInterval(() => loadNodes(false), 30000);
     return () => window.clearInterval(timer);
   }, [active, user?.role]);
+
+  const loadServers = async () => {
+    setServersLoading(true);
+    setServerError("");
+    try {
+      const response = await fetch("/api/servers", { credentials: "include" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not load servers.");
+      setServers(data.servers || []);
+    } catch (error) {
+      setServerError(error.message);
+    } finally {
+      setServersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (active !== "Servers" && active !== "Overview") return;
+    loadServers();
+    if (user?.role === "admin") loadNodes(false);
+  }, [active, user?.role]);
+
+  const createServer = async (event) => {
+    event.preventDefault();
+    setServerError("");
+    try {
+      const response = await fetch("/api/servers", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+        body: JSON.stringify({
+          ...serverDraft,
+          memoryMb: Number(serverDraft.memoryMb),
+          diskGb: Number(serverDraft.diskGb),
+          nodeId: serverDraft.nodeId || null
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not create server.");
+      setServerDraft({ name: "", software: "Paper", version: "1.21.4", memoryMb: "2048", diskGb: "10", nodeId: "" });
+      await loadServers();
+    } catch (error) {
+      setServerError(error.message);
+    }
+  };
 
   const refreshNodeDetails = async () => {
     setNodeRefreshing(true);
@@ -144,7 +193,7 @@ export default function App() {
         </div>
         <div className="clean-nav-label">WORKSPACE</div>
         <button className={"nav-item " + (active === "Overview" ? "active" : "")} onClick={() => goTo("Overview")}><LayoutDashboard size={17}/><span>Overview</span></button>
-        <button className={"nav-item " + (active === "Servers" ? "active" : "")} onClick={() => goTo("Servers")}><Server size={17}/><span>Servers</span><em>1</em></button>
+        <button className={"nav-item " + (active === "Servers" ? "active" : "")} onClick={() => goTo("Servers")}><Server size={17}/><span>Servers</span><em>{servers.length}</em></button>
         {user?.role === "admin" && <button className={"nav-item " + (active === "Nodes" ? "active" : "")} onClick={() => goTo("Nodes")}><Wifi size={17}/><span>Nodes</span></button>}
         <div className="sidebar-bottom clean-profile">
           <div className="profile-avatar">{user?.name?.[0]?.toUpperCase() || "L"}</div>
@@ -239,18 +288,36 @@ export default function App() {
                 </div>
               </section>
             </>
+          ) : active === "Servers" ? (
+            <>
+              <div className="clean-page-heading"><div><h1>Servers</h1><p>Your Minecraft server inventory.</p></div><span className="clean-server-count">{servers.length} total</span></div>
+              {user?.role === "admin" && <section className="server-card clean-create-server">
+                <div className="clean-section-heading"><h2>Create server</h2><span>Configuration only</span></div>
+                <form onSubmit={createServer} className="clean-server-form">
+                  <label>Server name<input value={serverDraft.name} onChange={event => setServerDraft({ ...serverDraft, name: event.target.value })} minLength={2} maxLength={60} placeholder="e.g. Lumen SMP" required /></label>
+                  <label>Software<select value={serverDraft.software} onChange={event => setServerDraft({ ...serverDraft, software: event.target.value })}><option>Paper</option><option>Vanilla</option><option>Fabric</option></select></label>
+                  <label>Minecraft version<input value={serverDraft.version} onChange={event => setServerDraft({ ...serverDraft, version: event.target.value })} maxLength={20} placeholder="1.21.4" required /></label>
+                  <label>Memory (MB)<input type="number" min="512" max="16384" step="256" value={serverDraft.memoryMb} onChange={event => setServerDraft({ ...serverDraft, memoryMb: event.target.value })} required /></label>
+                  <label>Storage (GB)<input type="number" min="1" max="200" value={serverDraft.diskGb} onChange={event => setServerDraft({ ...serverDraft, diskGb: event.target.value })} required /></label>
+                  <label>Node<select value={serverDraft.nodeId} onChange={event => setServerDraft({ ...serverDraft, nodeId: event.target.value })}><option value="">Unassigned</option>{nodes.filter(node => node.enabled).map(node => <option key={node.id} value={node.id}>{node.name} · {node.status}</option>)}</select></label>
+                  <button className="clean-open-button" type="submit">Create server</button>
+                </form>
+                <p className="clean-form-note">This saves a server configuration only. It does not download or start Minecraft.</p>
+              </section>}
+              {serverError && <p className="clean-node-error">{serverError}</p>}
+              <div className="clean-section-heading"><h2>All servers</h2><button className="clean-refresh-button" onClick={loadServers} disabled={serversLoading}>{serversLoading ? "Loading…" : "↻ Refresh"}</button></div>
+              {serversLoading ? <div className="clean-empty-node">Loading servers…</div> : servers.length === 0 ? <div className="clean-empty-node">No servers yet.</div> : <div className="clean-server-list">
+                {servers.map(server => <section className="server-card clean-managed-server" key={server.id}>
+                  <div className="game-icon"><Server size={21}/></div>
+                  <div className="clean-managed-server-main"><strong>{server.name}</strong><p>Minecraft Java · {server.software} · {server.version}</p><small>{server.node_name || "No node assigned"} · {server.memory_mb} MB RAM · {server.disk_gb} GB storage</small></div>
+                  <span className="clean-node-status offline">{server.status === "pending" ? "PENDING" : server.status}</span>
+                </section>)}
+              </div>}
+            </>
           ) : (
             <>
-              <div className="clean-page-heading"><div><h1>Lumen SMP</h1><p>Minecraft Java · Paper · 1.21.x</p></div><span className="server-status stopped"><span/>No node assigned</span></div>
-              <section className="server-card clean-detail-card">
-                <div className="clean-detail-top"><div className="game-icon"><Server size={22}/></div><div><h2>Server console</h2><p>Connect a Linux node to enable server controls.</p></div></div>
-                <div className="clean-console"><div className="clean-console-bar"><span/><span/><span/><b>CONSOLE</b></div><div className="clean-console-body"><Terminal size={22}/><strong>No node connected</strong><p>Console output will appear here when a node is connected.</p></div></div>
-              </section>
-              <section className="clean-resource-grid">
-                <div className="stat-card"><div className="clean-stat-icon"><Cpu size={17}/></div><div className="clean-stat-label">CPU USAGE</div><div className="stat-value">—</div></div>
-                <div className="stat-card"><div className="clean-stat-icon"><MemoryStick size={17}/></div><div className="clean-stat-label">MEMORY</div><div className="stat-value">—</div></div>
-                <div className="stat-card"><div className="clean-stat-icon"><Activity size={17}/></div><div className="clean-stat-label">PLAYERS</div><div className="stat-value">—</div></div>
-              </section>
+              <div className="clean-page-heading"><div><h1>Server</h1><p>Select a server from the Servers page to manage its configuration.</p></div></div>
+              <div className="clean-empty-node">Server controls will be enabled after secure node provisioning is implemented.</div>
             </>
           )}
           <footer className="clean-footer">Lumen Panel <span>·</span> Development preview</footer>
