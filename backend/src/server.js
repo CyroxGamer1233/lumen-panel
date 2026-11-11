@@ -64,6 +64,13 @@ const authLimiter = rateLimit({
   message: { error: "Too many authentication attempts. Try again later." }
 });
 
+const nodeHeartbeatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: "draft-7",
+  legacyHeaders: false
+});
+
 const csrfMatches = (expected, supplied) => {
   if (typeof expected !== "string" || typeof supplied !== "string") return false;
   const a = Buffer.from(expected);
@@ -134,7 +141,6 @@ await pool.query(`
 `);
 
 
-const nodeHeartbeatLimiter
 await pool.query(`
   CREATE TABLE IF NOT EXISTS allocations (
     id BIGSERIAL PRIMARY KEY,
@@ -147,7 +153,6 @@ await pool.query(`
 `);
 await pool.query("ALTER TABLE servers ADD COLUMN IF NOT EXISTS allocation_id BIGINT REFERENCES allocations(id) ON DELETE SET NULL");
 await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS servers_allocation_id_unique ON servers(allocation_id) WHERE allocation_id IS NOT NULL");
- = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: "draft-7", legacyHeaders: false });
 const hashNodeToken = (token) => createHash("sha256").update(token).digest("hex");
 
 const requireNodeToken = async (req, res, next) => {
