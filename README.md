@@ -182,3 +182,13 @@ Authentication requires a reachable PostgreSQL database and valid environment va
 - Server inventory now exposes the latest runtime report. Reports become unavailable when the node is disabled or its heartbeat is older than 90 seconds.
 - The dashboard labels runtime state as node-reported information; a heartbeat does not prove Minecraft or Docker is running.
 - The Codespaces agent remains heartbeat-only. No process control, shell execution, Docker/Wings integration, or live Minecraft runtime is enabled.
+
+
+## Runtime event history and activity logs (Milestone 13)
+
+- Added an append-only per-server activity table for node-reported runtime status changes and panel power requests.
+- Every accepted node status report is recorded with its node, status, optional message, and timestamp, while the current-status table continues to store the latest observation.
+- Authenticated server owners and administrators can retrieve the latest 50 events for a server with `GET /api/servers/:id/events`.
+- Power requests are recorded as panel activity, but continue to return `RUNTIME_NOT_CONNECTED` with `executed: false`; they do not start, stop, or restart Minecraft.
+- Server Details displays the latest event history and supports manual refresh.
+- The history is an audit of received reports and requests, not proof that a Minecraft process is running. The existing Codespaces node agent remains heartbeat-only and does not send runtime status events.
