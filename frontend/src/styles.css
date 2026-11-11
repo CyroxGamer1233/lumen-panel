@@ -112,3 +112,10 @@
 .lumen-clean .clean-node-detail-footer p{font-size:10px;color:#9ba1a4;line-height:1.6;margin:0}
 .lumen-clean .clean-refresh-button:disabled{opacity:.55;cursor:wait}
 @media(max-width:600px){.lumen-clean .clean-node-detail-card{padding:14px}.lumen-clean .clean-node-detail-main{flex-wrap:wrap}.lumen-clean .clean-node-detail-main .clean-node-status{margin-left:52px}.lumen-clean .clean-node-detail-grid{grid-template-columns:1fr}.lumen-clean .clean-node-detail-footer{align-items:flex-start;flex-direction:column}.lumen-clean .clean-node-detail-heading{gap:8px}}
+
+
+/* Live node monitoring */
+.lumen-clean .clean-node-refresh-meta{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1}
+.lumen-clean .clean-node-refresh-meta span{font-size:9px;font-weight:800;color:#ffd400;letter-spacing:.35px}
+.lumen-clean .clean-node-refresh-meta small{font-size:9px;color:#858d91}
+@media(max-width:600px){.lumen-clean .clean-node-detail-heading{flex-wrap:wrap}.lumen-clean .clean-node-refresh-meta{order:3;flex-basis:100%;align-items:flex-start;padding-left:2px}}
