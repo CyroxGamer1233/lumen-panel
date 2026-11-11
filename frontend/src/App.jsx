@@ -274,19 +274,21 @@ export default function App() {
             <>
               <div className="clean-page-heading"><div><h1>Overview</h1><p>Your game servers at a glance.</p></div></div>
               <section className="stats-grid clean-stats">
-                <div className="stat-card"><div className="clean-stat-icon"><Server size={17}/></div><div className="clean-stat-label">SERVERS</div><div className="stat-value">1 <small>/ 5</small></div></div>
+                <div className="stat-card"><div className="clean-stat-icon"><Server size={17}/></div><div className="clean-stat-label">SERVERS</div><div className="stat-value">{servers.length} <small>/ 5</small></div></div>
                 <div className="stat-card"><div className="clean-stat-icon"><Cpu size={17}/></div><div className="clean-stat-label">CPU</div><div className="stat-value">—</div></div>
                 <div className="stat-card"><div className="clean-stat-icon"><MemoryStick size={17}/></div><div className="clean-stat-label">MEMORY</div><div className="stat-value">—</div></div>
                 <div className="stat-card"><div className="clean-stat-icon"><HardDrive size={17}/></div><div className="clean-stat-label">STORAGE</div><div className="stat-value">—</div></div>
               </section>
-              <div className="clean-section-heading"><h2>Your servers</h2><span>1 server</span></div>
-              <section className="server-card clean-server-card">
-                <div className="server-main">
-                  <div className="game-icon"><Server size={22}/></div>
-                  <div className="server-info"><div className="server-title-row"><h3>Lumen SMP</h3><span className="server-status stopped"><span/>Not connected</span></div><p>Minecraft Java · Paper</p><div className="server-meta"><span><Wifi size={14}/> No node assigned</span><span>0 / 10 players</span></div></div>
-                  <button className="clean-open-button" onClick={() => goTo("Servers")}>Manage <span>→</span></button>
-                </div>
-              </section>
+              <div className="clean-section-heading"><h2>Your servers</h2><span>{servers.length} total</span></div>
+              {servers.length === 0 ? <div className="clean-empty-node">No server configurations yet. Open Servers to create one.</div> : servers.slice(0, 3).map(server => (
+                <section className="server-card clean-server-card" key={server.id}>
+                  <div className="server-main">
+                    <div className="game-icon"><Server size={22}/></div>
+                    <div className="server-info"><div className="server-title-row"><h3>{server.name}</h3><span className="server-status stopped"><span/>{server.status === "pending" ? "Pending setup" : server.status}</span></div><p>{server.game} · {server.software} · {server.version}</p><div className="server-meta"><span><Wifi size={14}/> {server.node_name || "No node assigned"}</span><span>{server.memory_mb} MB RAM · {server.disk_gb} GB</span></div></div>
+                    <button className="clean-open-button" onClick={() => goTo("Servers")}>Manage <span>→</span></button>
+                  </div>
+                </section>
+              ))}
             </>
           ) : active === "Servers" ? (
             <>
