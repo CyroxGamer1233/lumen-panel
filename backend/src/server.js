@@ -152,6 +152,20 @@ await pool.query(`
 `);
 
 await pool.query(`
+  CREATE TABLE IF NOT EXISTS server_activity_events (
+    id BIGSERIAL PRIMARY KEY,
+    server_id BIGINT NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+    node_id BIGINT REFERENCES nodes(id) ON DELETE SET NULL,
+    actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    event_type VARCHAR(24) NOT NULL CHECK (event_type IN ('runtime_status', 'power_request')),
+    status VARCHAR(24) NOT NULL,
+    message VARCHAR(200),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )
+`);
+await pool.query("CREATE INDEX IF NOT EXISTS server_activity_events_server_id_id_idx ON server_activity_events(server_id, id DESC)");
+
+await pool.query(`
   CREATE TABLE IF NOT EXISTS allocations (
     id BIGSERIAL PRIMARY KEY,
     node_id BIGINT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
@@ -358,6 +372,10 @@ app.post("/api/node/servers/:id/status", nodeHeartbeatLimiter, requireNodeToken,
           message = EXCLUDED.message, reported_at = NOW()
       RETURNING server_id, status, message, reported_at
     `, [req.params.id, req.nodeId, status, message || null]);
+    await pool.query(
+      "INSERT INTO server_activity_events (server_id, node_id, event_type, status, message) VALUES ($1, $2, 'runtime_status', $3, $4)",
+      [req.params.id, req.nodeId, status, message || null]
+    );
     res.json({ accepted: true, observation: result.rows[0], server_time: new Date().toISOString() });
   } catch (error) { next(error); }
 });
@@ -382,6 +400,31 @@ app.get("/api/servers", requireAuth, async (req, res, next) => {
       ORDER BY s.created_at DESC
     `, isAdmin ? [] : [req.session.userId]);
     res.json({ servers: result.rows });
+  } catch (error) { next(error); }
+});
+
+app.get("/api/servers/:id/events", requireAuth, async (req, res, next) => {
+  try {
+    if (!/^\\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid server ID." });
+    const account = await pool.query("SELECT role FROM users WHERE id = $1", [req.session.userId]);
+    const isAdmin = account.rows[0]?.role === "admin";
+    const server = await pool.query(
+      `SELECT id FROM servers WHERE id = $1 ${isAdmin ? "" : "AND owner_id = $2"}`,
+      isAdmin ? [req.params.id] : [req.params.id, req.session.userId]
+    );
+    if (!server.rowCount) return res.status(404).json({ error: "Server not found." });
+    const result = await pool.query(`
+      SELECT e.id, e.event_type, e.status, e.message, e.created_at,
+        n.name AS node_name,
+        CASE WHEN e.actor_user_id IS NULL THEN NULL ELSE u.name END AS actor_name
+      FROM server_activity_events e
+      LEFT JOIN nodes n ON n.id = e.node_id
+      LEFT JOIN users u ON u.id = e.actor_user_id
+      WHERE e.server_id = $1
+      ORDER BY e.id DESC
+      LIMIT 50
+    `, [req.params.id]);
+    res.json({ events: result.rows, limit: 50 });
   } catch (error) { next(error); }
 });
 
@@ -511,6 +554,10 @@ app.post("/api/servers/:id/power", requireAuth, requireCsrf, async (req, res, ne
       isAdmin ? [req.params.id] : [req.params.id, req.session.userId]
     );
     if (!server.rowCount) return res.status(404).json({ error: "Server not found." });
+    await pool.query(
+      "INSERT INTO server_activity_events (server_id, actor_user_id, event_type, status, message) VALUES ($1, $2, 'power_request', $3, $4)",
+      [req.params.id, req.session.userId, action, "Not executed: secure runtime is not connected."]
+    );
     return res.status(503).json({
       error: "Power controls are unavailable because no secure Minecraft runtime is connected.",
       code: "RUNTIME_NOT_CONNECTED",
