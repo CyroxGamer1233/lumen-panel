@@ -9,6 +9,11 @@ export default function App() {
   const [authStatus, setAuthStatus] = useState("checking");
   const [user, setUser] = useState(null);
   const [csrfToken, setCsrfToken] = useState("");
+  const [nodes, setNodes] = useState([]);
+  const [nodeName, setNodeName] = useState("");
+  const [nodeToken, setNodeToken] = useState("");
+  const [nodesLoading, setNodesLoading] = useState(false);
+  const [nodesError, setNodesError] = useState("");
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
@@ -27,6 +32,59 @@ export default function App() {
       .then(() => setApiStatus("online"))
       .catch(() => setApiStatus("offline"));
   }, []);
+
+  useEffect(() => {
+    if (active !== "Nodes" || user?.role !== "admin") return;
+    let current = true;
+    setNodesLoading(true);
+    fetch("/api/admin/nodes", { credentials: "include" })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not load nodes.");
+        if (current) setNodes(data.nodes || []);
+      })
+      .catch(error => { if (current) setNodesError(error.message); })
+      .finally(() => { if (current) setNodesLoading(false); });
+    return () => { current = false; };
+  }, [active, user?.role]);
+
+  const createNode = async (event) => {
+    event.preventDefault();
+    setNodesError("");
+    setNodeToken("");
+    try {
+      const response = await fetch("/api/admin/nodes", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+        body: JSON.stringify({ name: nodeName })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not create node.");
+      setNodeToken(data.token);
+      setNodeName("");
+      const listResponse = await fetch("/api/admin/nodes", { credentials: "include" });
+      if (listResponse.ok) setNodes((await listResponse.json()).nodes || []);
+    } catch (error) {
+      setNodesError(error.message);
+    }
+  };
+
+  const disableNode = async (id) => {
+    setNodesError("");
+    try {
+      const response = await fetch(`/api/admin/nodes/${id}/disable`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "X-CSRF-Token": csrfToken }
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not disable node.");
+      setNodes(current => current.map(node => node.id === id ? { ...node, enabled: false, status: "disabled" } : node));
+    } catch (error) {
+      setNodesError(error.message);
+    }
+  };
 
   const handleAuthenticated = (nextUser, nextCsrfToken) => {
     setUser(nextUser);
@@ -69,6 +127,7 @@ export default function App() {
         <div className="clean-nav-label">WORKSPACE</div>
         <button className={"nav-item " + (active === "Overview" ? "active" : "")} onClick={() => goTo("Overview")}><LayoutDashboard size={17}/><span>Overview</span></button>
         <button className={"nav-item " + (active === "Servers" ? "active" : "")} onClick={() => goTo("Servers")}><Server size={17}/><span>Servers</span><em>1</em></button>
+        {user?.role === "admin" && <button className={"nav-item " + (active === "Nodes" ? "active" : "")} onClick={() => goTo("Nodes")}><Wifi size={17}/><span>Nodes</span></button>}
         <div className="sidebar-bottom clean-profile">
           <div className="profile-avatar">{user?.name?.[0]?.toUpperCase() || "L"}</div>
           <div className="profile-copy"><b>{user?.name || "Lumen user"}</b><small>{user?.role === "admin" ? "Admin" : "Member"}</small></div>
@@ -86,7 +145,34 @@ export default function App() {
         </header>
 
         <div className="page-content clean-content">
-          {active === "Overview" ? (
+          {active === "Nodes" && user?.role === "admin" ? (
+            <>
+              <div className="clean-page-heading"><div><h1>Nodes</h1><p>Manage your Linux host connections.</p></div></div>
+              <section className="server-card clean-node-create">
+                <form onSubmit={createNode}>
+                  <label htmlFor="node-name">New node</label>
+                  <div className="clean-node-form-row">
+                    <input id="node-name" value={nodeName} onChange={event => setNodeName(event.target.value)} minLength={2} maxLength={60} placeholder="e.g. Lucknow Node 1" required />
+                    <button className="clean-open-button" type="submit">Create node</button>
+                  </div>
+                </form>
+                {nodeToken && <div className="clean-token-box"><strong>Node token — copy it now</strong><code>{nodeToken}</code><p>This token is shown once. Store it securely on your Linux node.</p><button type="button" className="clean-copy-button" onClick={() => navigator.clipboard?.writeText(nodeToken)}>Copy token</button></div>}
+                {nodesError && <p className="clean-node-error">{nodesError}</p>}
+              </section>
+              <div className="clean-section-heading"><h2>Registered nodes</h2><span>{nodes.length} total</span></div>
+              {nodesLoading ? <div className="clean-empty-node">Loading nodes…</div> : nodes.length === 0 ? <div className="clean-empty-node">No nodes registered yet.</div> : (
+                <div className="clean-node-list">
+                  {nodes.map(node => (
+                    <section className="server-card clean-node-card" key={node.id}>
+                      <div><strong>{node.name}</strong><p>{node.agent_version ? `Agent ${node.agent_version}` : "Agent not detected"} · {node.last_seen_at ? new Date(node.last_seen_at).toLocaleString() : "Never connected"}</p></div>
+                      <span className={"clean-node-status " + node.status}>{node.status}</span>
+                      {node.enabled && <button type="button" className="clean-disable-button" onClick={() => disableNode(node.id)}>Disable</button>}
+                    </section>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : active === "Overview" ? (
             <>
               <div className="clean-page-heading"><div><h1>Overview</h1><p>Your game servers at a glance.</p></div></div>
               <section className="stats-grid clean-stats">
