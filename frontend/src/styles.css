@@ -138,3 +138,23 @@
 .lumen-clean .clean-managed-server-main p{font-size:10px;color:#b4bbbe;margin:5px 0}
 .lumen-clean .clean-managed-server-main small{font-size:9px;color:#858d91;overflow-wrap:anywhere}
 @media(max-width:600px){.lumen-clean .clean-server-form{grid-template-columns:1fr}.lumen-clean .clean-managed-server{align-items:flex-start;flex-wrap:wrap}.lumen-clean .clean-managed-server-main{min-width:calc(100% - 50px)}}
+
+
+/* Server configuration and allocations — Milestone 8 */
+.lumen-clean .clean-allocation-panel{margin-top:18px}
+.lumen-clean .clean-allocation-form{display:grid;grid-template-columns:1.2fr 1.2fr .8fr auto;align-items:end;gap:10px}
+.lumen-clean .clean-allocation-form label{display:grid;gap:7px;color:#aeb4b7;font-size:10px;font-weight:700}
+.lumen-clean .clean-allocation-form input,.lumen-clean .clean-allocation-form select,.lumen-clean .clean-assign-row select,.lumen-clean .clean-edit-config input,.lumen-clean .clean-edit-config select{min-width:0;width:100%;background:#090a0b;border:1px solid #34383a;border-radius:6px;color:#f4f5f5;padding:9px 10px;font:inherit;font-size:10px;outline:none}
+.lumen-clean .clean-allocation-form input:focus,.lumen-clean .clean-allocation-form select:focus,.lumen-clean .clean-assign-row select:focus,.lumen-clean .clean-edit-config input:focus,.lumen-clean .clean-edit-config select:focus{border-color:#ffd400}
+.lumen-clean .clean-allocation-list{display:grid;gap:7px;margin-top:14px}
+.lumen-clean .clean-allocation-list>div{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:center;padding:10px;background:#0d0f10;border:1px solid #292b2d;border-radius:6px}
+.lumen-clean .clean-allocation-list span,.lumen-clean .clean-allocation-list small{font-size:9px;color:#92989b}
+.lumen-clean .clean-allocation-list strong{font-size:10px;color:#f0f1f1}
+.lumen-clean .clean-managed-server-expanded{align-items:flex-start;flex-wrap:wrap}
+.lumen-clean .clean-server-admin-actions{flex-basis:100%;display:grid;gap:9px;padding-top:10px;border-top:1px solid #292b2d}
+.lumen-clean .clean-assign-row{display:flex;gap:8px;max-width:560px}
+.lumen-clean .clean-assign-row select{flex:1}
+.lumen-clean .clean-edit-config{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.lumen-clean .clean-edit-config button{min-height:34px}
+@media(max-width:700px){.lumen-clean .clean-allocation-form{grid-template-columns:1fr 1fr}.lumen-clean .clean-allocation-form button{grid-column:1/-1}.lumen-clean .clean-allocation-list>div{grid-template-columns:1fr 1fr}.lumen-clean .clean-allocation-list small{grid-column:1/-1}.lumen-clean .clean-edit-config{grid-template-columns:1fr 1fr}}
+@media(max-width:420px){.lumen-clean .clean-allocation-form,.lumen-clean .clean-edit-config{grid-template-columns:1fr}.lumen-clean .clean-allocation-form button{grid-column:auto}.lumen-clean .clean-assign-row{flex-direction:column}}
