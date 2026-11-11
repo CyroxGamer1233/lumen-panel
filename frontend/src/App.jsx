@@ -105,7 +105,7 @@ function App() {
         </div>)}
         <div className="sidebar-bottom">
           <div className="help-card"><div className="help-icon"><LifeBuoy size={17}/></div><b>Need a hand?</b><p>Explore the docs and learn your way around Lumen.</p><button onClick={() => setNotice("Documentation will be added soon.")}>Open documentation <ArrowUpRight size={13}/></button></div>
-          <div className="profile-row"><div className="profile-avatar">S</div><div className="profile-copy"><b>{user?.name || "Lumen user"}</b><small>{user?.role === "admin" ? "Administrator" : "Member"}</small></div><MoreHorizontal size={18}/></div>
+          <div className="profile-row"><div className="profile-avatar">{user?.name?.[0]?.toUpperCase() || "L"}</div><div className="profile-copy"><b>{user?.name || "Lumen user"}</b><small>{user?.role === "admin" ? "Administrator" : "Member"}</small></div><MoreHorizontal size={18}/></div>
         </div>
       </aside>
 
