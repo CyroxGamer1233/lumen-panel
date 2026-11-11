@@ -28,13 +28,49 @@ function App() {
   const [csrfToken, setCsrfToken] = useState("");
 
   useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then(async response => {
+        if (!response.ok) throw new Error("Signed out");
+        const data = await response.json();
+        setUser(data.user);
+        setAuthStatus("signed-in");
+        const csrfResponse = await fetch("/api/auth/csrf", { credentials: "include" });
+        if (csrfResponse.ok) setCsrfToken((await csrfResponse.json()).csrfToken);
+      })
+      .catch(() => setAuthStatus("signed-out"));
+
     fetch("/api/health")
-      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(response => response.ok ? response.json() : Promise.reject())
       .then(() => setApiStatus("online"))
       .catch(() => setApiStatus("offline"));
   }, []);
 
-  const handleAuthenticated = (nextUser, nextCsrfToken) => {\n    setUser(nextUser);\n    setCsrfToken(nextCsrfToken || "");\n    setAuthStatus("signed-in");\n  };\n\n  const signOut = async () => {\n    try {\n      await fetch("/api/auth/logout", { method: "POST", credentials: "include", headers: { "X-CSRF-Token": csrfToken } });\n    } finally {\n      setUser(null);\n      setCsrfToken("");\n      setAuthStatus("signed-out");\n    }\n  };\n\n  if (authStatus === "checking") return <div className="auth-shell"><div className="auth-brand"><div className="auth-brand-icon"><Zap size={22}/></div><strong>LUMEN.</strong></div></div>;\n  if (authStatus !== "signed-in") return <AuthScreen onAuthenticated={handleAuthenticated} />;\n\n  const choose = (name) => {
+  const handleAuthenticated = (nextUser, nextCsrfToken) => {
+    setUser(nextUser);
+    setCsrfToken(nextCsrfToken || "");
+    setAuthStatus("signed-in");
+  };
+
+  const signOut = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        headers: { "X-CSRF-Token": csrfToken }
+      });
+    } finally {
+      setUser(null);
+      setCsrfToken("");
+      setAuthStatus("signed-out");
+    }
+  };
+
+  if (authStatus === "checking") {
+    return <div className="auth-shell"><div className="auth-brand"><div className="auth-brand-icon"><Zap size={22}/></div><strong>LUMEN.</strong></div></div>;
+  }
+  if (authStatus !== "signed-in") return <AuthScreen onAuthenticated={handleAuthenticated} />;
+
+  const choose = (name) => {
     setActive(name);
     setMenuOpen(false);
     if (name !== "Overview") setNotice(name + " section is coming in the next build.");
