@@ -16,6 +16,7 @@ export default function App() {
   const [nodesError, setNodesError] = useState("");
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [nodeRefreshing, setNodeRefreshing] = useState(false);
+  const [nodesUpdatedAt, setNodesUpdatedAt] = useState(null);
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
@@ -43,6 +44,7 @@ export default function App() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not load nodes.");
       setNodes(data.nodes || []);
+      setNodesUpdatedAt(new Date());
       return data.nodes || [];
     } catch (error) {
       setNodesError(error.message);
@@ -53,7 +55,10 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (active === "Nodes" && user?.role === "admin") loadNodes();
+    if (active !== "Nodes" || user?.role !== "admin") return;
+    loadNodes();
+    const timer = window.setInterval(() => loadNodes(false), 30000);
+    return () => window.clearInterval(timer);
   }, [active, user?.role]);
 
   const refreshNodeDetails = async () => {
@@ -192,6 +197,7 @@ export default function App() {
                 return <>
                   <div className="clean-node-detail-heading">
                     <button type="button" className="clean-back-button" onClick={() => setSelectedNodeId(null)}>← Back to nodes</button>
+                    <div className="clean-node-refresh-meta"><span>Auto-refresh · 30s</span><small>{nodesUpdatedAt ? `Updated ${nodesUpdatedAt.toLocaleTimeString()}` : "Waiting for update"}</small></div>
                     <button type="button" className="clean-refresh-button" onClick={refreshNodeDetails} disabled={nodeRefreshing}>{nodeRefreshing ? "Refreshing…" : "↻ Refresh"}</button>
                   </div>
                   <section className="server-card clean-node-detail-card">
