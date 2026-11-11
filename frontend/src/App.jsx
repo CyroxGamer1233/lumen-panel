@@ -29,6 +29,9 @@ export default function App() {
   const [serverEditDraft, setServerEditDraft] = useState({});
   const [powerMessage, setPowerMessage] = useState("");
   const [powerLoading, setPowerLoading] = useState("");
+  const [runtimeEvents, setRuntimeEvents] = useState([]);
+  const [runtimeEventsLoading, setRuntimeEventsLoading] = useState(false);
+  const [runtimeEventsError, setRuntimeEventsError] = useState("");
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
@@ -160,6 +163,27 @@ export default function App() {
     loadServers();
     if (user?.role === "admin") { loadNodes(false); loadAllocations(); }
   }, [active, user?.role]);
+
+  const loadRuntimeEvents = async (serverId = selectedServerId) => {
+    if (!serverId) return;
+    setRuntimeEventsLoading(true);
+    setRuntimeEventsError("");
+    try {
+      const response = await fetch(`/api/servers/${serverId}/events`, { credentials: "include" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not load activity history.");
+      setRuntimeEvents(data.events || []);
+    } catch (error) {
+      setRuntimeEventsError(error.message);
+    } finally {
+      setRuntimeEventsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (active !== "Server Details" || !selectedServerId) return;
+    loadRuntimeEvents(selectedServerId);
+  }, [active, selectedServerId]);
 
   const createServer = async (event) => {
     event.preventDefault();
@@ -430,6 +454,29 @@ export default function App() {
                   </div>
                   <p className="clean-form-note">Controls are a connection check only. No Minecraft process will be started, stopped, or restarted until a secure runtime is installed.</p>
                   {powerMessage && <p className="clean-power-message" role="status">{powerMessage}</p>}
+                </section>
+                <section className="server-card clean-activity-panel">
+                  <div className="clean-server-panel-heading">
+                    <div><Activity size={16}/><h2>Activity history</h2></div>
+                    <button type="button" className="clean-refresh-button" onClick={() => loadRuntimeEvents()} disabled={runtimeEventsLoading}>{runtimeEventsLoading ? "Loading…" : "↻ Refresh"}</button>
+                  </div>
+                  <p className="clean-form-note">Latest 50 recorded runtime reports and power requests. Power requests shown as blocked were not executed.</p>
+                  {runtimeEventsError && <p className="clean-node-error">{runtimeEventsError}</p>}
+                  {runtimeEventsLoading && runtimeEvents.length === 0 ? <div className="clean-activity-empty">Loading activity…</div> : runtimeEvents.length === 0 ? <div className="clean-activity-empty">No activity recorded yet.</div> : (
+                    <div className="clean-activity-list">
+                      {runtimeEvents.map(event => (
+                        <article className="clean-activity-item" key={event.id}>
+                          <span className="clean-activity-dot" aria-hidden="true"></span>
+                          <div className="clean-activity-copy">
+                            <strong>{event.event_type === "runtime_status" ? `Runtime status · ${event.status}` : `Power request · ${event.status}`}</strong>
+                            <p>{event.message || (event.event_type === "runtime_status" ? "Node reported a lifecycle status." : "Power request recorded.")}</p>
+                            <small>{new Date(event.created_at).toLocaleString()}{event.node_name ? ` · ${event.node_name}` : ""}{event.actor_name ? ` · ${event.actor_name}` : ""}</small>
+                          </div>
+                          <span className="clean-activity-kind">{event.event_type === "runtime_status" ? "NODE" : "PANEL"}</span>
+                        </article>
+                      ))}
+                    </div>
+                  )}
                 </section>
                 <div className="clean-server-detail-columns">
                   <section className="server-card clean-server-console">
