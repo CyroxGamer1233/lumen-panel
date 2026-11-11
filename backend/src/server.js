@@ -442,7 +442,7 @@ app.patch("/api/servers/:id/config", requireAdmin, requireCsrf, async (req, res,
 
 app.post("/api/servers/:id/power", requireAuth, requireCsrf, async (req, res, next) => {
   try {
-    if (!/^\\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid server ID." });
+    if (!/^\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid server ID." });
     const action = typeof req.body.action === "string" ? req.body.action : "";
     if (!["start", "stop", "restart"].includes(action)) {
       return res.status(400).json({ error: "Choose a valid power action." });
