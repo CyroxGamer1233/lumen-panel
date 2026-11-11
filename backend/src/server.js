@@ -364,19 +364,32 @@ app.post("/api/node/servers/:id/status", nodeHeartbeatLimiter, requireNodeToken,
       [req.params.id, req.nodeId]
     );
     if (!server.rowCount) return res.status(404).json({ error: "Server is not assigned to this node." });
-    const result = await pool.query(`
-      INSERT INTO server_runtime_status (server_id, node_id, status, message, reported_at)
-      VALUES ($1, $2, $3, $4, NOW())
-      ON CONFLICT (server_id) DO UPDATE
-      SET node_id = EXCLUDED.node_id, status = EXCLUDED.status,
-          message = EXCLUDED.message, reported_at = NOW()
-      RETURNING server_id, status, message, reported_at
-    `, [req.params.id, req.nodeId, status, message || null]);
-    await pool.query(
-      "INSERT INTO server_activity_events (server_id, node_id, event_type, status, message) VALUES ($1, $2, 'runtime_status', $3, $4)",
-      [req.params.id, req.nodeId, status, message || null]
-    );
-    res.json({ accepted: true, observation: result.rows[0], server_time: new Date().toISOString() });
+    // Keep the observation and audit event atomic.
+    const client = await pool.connect();
+    let observation;
+    try {
+      await client.query("BEGIN");
+      const result = await client.query(`
+        INSERT INTO server_runtime_status (server_id, node_id, status, message, reported_at)
+        VALUES ($1, $2, $3, $4, NOW())
+        ON CONFLICT (server_id) DO UPDATE
+        SET node_id = EXCLUDED.node_id, status = EXCLUDED.status,
+            message = EXCLUDED.message, reported_at = NOW()
+        RETURNING server_id, status, message, reported_at
+      `, [req.params.id, req.nodeId, status, message || null]);
+      await client.query(
+        "INSERT INTO server_activity_events (server_id, node_id, event_type, status, message) VALUES ($1, $2, 'runtime_status', $3, $4)",
+        [req.params.id, req.nodeId, status, message || null]
+      );
+      await client.query("COMMIT");
+      observation = result.rows[0];
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+    res.json({ accepted: true, observation, server_time: new Date().toISOString() });
   } catch (error) { next(error); }
 });
 
@@ -413,6 +426,10 @@ app.get("/api/servers/:id/events", requireAuth, async (req, res, next) => {
       isAdmin ? [req.params.id] : [req.params.id, req.session.userId]
     );
     if (!server.rowCount) return res.status(404).json({ error: "Server not found." });
+    const before = req.query.before === undefined ? null : String(req.query.before);
+    if (before !== null && (!/^\d+$/.test(before) || BigInt(before) < 1n)) {
+      return res.status(400).json({ error: "Invalid activity cursor." });
+    }
     const result = await pool.query(`
       SELECT e.id, e.event_type, e.status, e.message, e.created_at,
         n.name AS node_name,
@@ -420,11 +437,14 @@ app.get("/api/servers/:id/events", requireAuth, async (req, res, next) => {
       FROM server_activity_events e
       LEFT JOIN nodes n ON n.id = e.node_id
       LEFT JOIN users u ON u.id = e.actor_user_id
-      WHERE e.server_id = $1
+      WHERE e.server_id = $1 AND ($2::BIGINT IS NULL OR e.id < $2::BIGINT)
       ORDER BY e.id DESC
-      LIMIT 50
-    `, [req.params.id]);
-    res.json({ events: result.rows, limit: 50 });
+      LIMIT 51
+    `, [req.params.id, before]);
+    const hasMore = result.rows.length > 50;
+    const events = hasMore ? result.rows.slice(0, 50) : result.rows;
+    const nextCursor = hasMore && events.length ? String(events[events.length - 1].id) : null;
+    res.json({ events, limit: 50, has_more: hasMore, next_cursor: nextCursor });
   } catch (error) { next(error); }
 });
 

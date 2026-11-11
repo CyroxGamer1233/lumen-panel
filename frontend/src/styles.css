@@ -219,3 +219,8 @@
 .lumen-clean .clean-activity-copy small{color:#777f83;font-size:8px;line-height:1.5}
 .lumen-clean .clean-activity-kind{font-size:8px;font-weight:800;letter-spacing:.6px;color:#d8bd50;padding:4px 6px;border:1px solid #514700;border-radius:4px}
 @media(max-width:520px){.lumen-clean .clean-activity-panel{padding:12px}.lumen-clean .clean-activity-item{gap:8px}.lumen-clean .clean-activity-kind{font-size:7px}}
+
+
+/* Milestone 13 — paginated activity history */
+.lumen-clean .clean-activity-more{display:flex;justify-content:center;padding:13px 0 2px}
+.lumen-clean .clean-activity-more button{min-width:150px}
