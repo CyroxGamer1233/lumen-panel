@@ -163,3 +163,11 @@ Authentication requires a reachable PostgreSQL database and valid environment va
 - Requests require an authenticated session, CSRF validation, a valid server ID, and server ownership (or administrator access).
 - The API currently returns `RUNTIME_NOT_CONNECTED` with `executed: false`. This is an intentional safety gate: no Minecraft process is started, stopped, or restarted.
 - A trusted runtime and node-side authorization protocol must be implemented and reviewed before these controls can execute real power actions.
+
+
+## Secure runtime architecture (Milestone 11)
+
+- Added [the runtime architecture contract](docs/RUNTIME_ARCHITECTURE.md), defining browser/API/node trust boundaries, the future authenticated job flow, lifecycle states, and security requirements.
+- Defines how Start/Stop/Restart requests must be authorized, queued, delivered, deduplicated, and confirmed by runtime observations.
+- This milestone is documentation and architecture only. It does not install Wings or Docker, add command execution, or enable real Minecraft power actions.
+- The existing node agent remains heartbeat-only, and the power API continues to return `RUNTIME_NOT_CONNECTED` until a separately provisioned and reviewed runtime exists.
