@@ -4,13 +4,14 @@ An original, Pterodactyl-style Minecraft hosting control panel with a custom Lum
 
 ## Current build
 
-- Responsive React dashboard with custom dark-purple Lumen styling
+- Responsive React dashboard with a minimal black-and-yellow Lumen interface
 - PostgreSQL-backed user accounts and server-side sessions
 - Argon2id password hashing, login rate limiting, CSRF protection and role-aware API middleware
 - Secure, HTTP-only session cookies
-- Admin-only user listing API at `GET /api/admin/users`
+- Admin-only user and node management APIs
+- Secure node registry: one-time node token issuance, SHA-256 token-hash storage, disable support, and authenticated heartbeat endpoint
 - Express API health endpoint and Vite development proxy
-- Demo-only server status controls (not connected to a real Minecraft host)
+- Server metrics and console remain demo-only until a real Linux node agent is installed
 
 ## Requirements
 
@@ -89,6 +90,26 @@ lumen-panel/
 │   └── package.json
 └── package.json
 ```
+
+
+## Node integration foundation (Milestone 3)
+
+This milestone adds the panel-side node registry. It does **not** install a Minecraft host, Docker, Wings, or a node agent.
+
+Admin API (requires a signed-in admin session; write requests also require the `X-CSRF-Token` header):
+
+- `GET /api/admin/nodes` — list registered nodes and their online/offline/disabled state.
+- `POST /api/admin/nodes` with `{ "name": "Lucknow Node 1" }` — create a node and return its token once.
+- `POST /api/admin/nodes/:id/disable` — revoke a node's access.
+
+Node API:
+
+- `POST /api/node/heartbeat` — authenticated node heartbeat. Send the node token as `Authorization: Bearer lmn_node_...` and an optional `{ "agentVersion": "0.1.0" }` JSON body.
+- A node is shown as online for 90 seconds after its latest heartbeat. Heartbeats are rate-limited.
+
+**Token safety:** the full node token is returned only when the node is created. The database stores only its SHA-256 hash. Keep the token on the Linux node in a root-readable environment file; never put it in React, browser storage, screenshots, Git commits, or chat. Disabling a node immediately prevents further heartbeats.
+
+**Current limitation:** no node agent is included yet, so nodes remain offline until a trusted agent is installed and configured. The heartbeat endpoint only records presence and agent version; it does not run shell commands, control Docker, or start Minecraft servers. Real server power controls, console streaming, file access, and live metrics are a later milestone.
 
 ## Planned production architecture
 
