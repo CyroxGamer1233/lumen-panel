@@ -2,6 +2,25 @@ import { useEffect, useState } from "react";
 import AuthScreen from "./AuthScreen.jsx";
 import { Activity, Cpu, HardDrive, LayoutDashboard, LogOut, MemoryStick, Menu, Server, Terminal, Wifi, Zap } from "lucide-react";
 
+function formatBytes(value) {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes < 0) return "—";
+  if (bytes < 1024) return bytes + " B";
+  const units = ["KB", "MB", "GB", "TB"];
+  let size = bytes / 1024;
+  let index = 0;
+  while (size >= 1024 && index < units.length - 1) { size /= 1024; index += 1; }
+  return size.toFixed(1) + " " + units[index];
+}
+
+function formatDuration(value) {
+  const seconds = Math.max(0, Number(value) || 0);
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return days + "d " + hours + "h " + minutes + "m";
+}
+
 export default function App() {
   const [active, setActive] = useState("Overview");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -412,6 +431,23 @@ export default function App() {
                       <div><span>LAST DIAGNOSTIC</span><strong>{node.agent_health_message || "No diagnostic message"}</strong></div>
                       <div><span>CREATED</span><strong>{node.created_at ? new Date(node.created_at).toLocaleString() : "—"}</strong></div>
                     </div>
+                    <section className="clean-node-metrics">
+                      <div className="clean-server-panel-heading">
+                        <div><Cpu size={16}/><h2>Host resource telemetry</h2></div>
+                        <span className={node.metrics_age_seconds == null || node.metrics_age_seconds > 90 ? "clean-metrics-stale" : "clean-metrics-live"}>
+                          {node.metrics_age_seconds == null ? "No data" : node.metrics_age_seconds > 90 ? "Stale" : "Live"}
+                        </span>
+                      </div>
+                      <p className="clean-form-note">Host-level readings reported by the node agent. These are not per-Minecraft-server metrics.</p>
+                      <div className="clean-node-metrics-grid">
+                        <div><span>CPU USAGE</span><strong>{node.cpu_usage_percent == null ? "Collecting…" : Number(node.cpu_usage_percent).toFixed(1) + "%"}</strong></div>
+                        <div><span>MEMORY USED</span><strong>{node.memory_used_bytes == null || node.memory_total_bytes == null ? "—" : formatBytes(node.memory_used_bytes) + " / " + formatBytes(node.memory_total_bytes)}</strong></div>
+                        <div><span>SYSTEM UPTIME</span><strong>{node.uptime_seconds == null ? "—" : formatDuration(node.uptime_seconds)}</strong></div>
+                        <div><span>AGENT MEMORY</span><strong>{node.process_rss_bytes == null ? "—" : formatBytes(node.process_rss_bytes)}</strong></div>
+                        <div><span>1-MIN LOAD AVERAGE</span><strong>{node.load_1m == null ? "—" : Number(node.load_1m).toFixed(2)}</strong></div>
+                        <div><span>LAST METRICS REPORT</span><strong>{node.metrics_reported_at ? new Date(node.metrics_reported_at).toLocaleString() : "No report yet"}</strong></div>
+                      </div>
+                    </section>
                     <div className="clean-node-detail-footer">
                       <p>{node.status === "disabled" ? "This node has been disabled." : node.status !== "online" ? "No recent heartbeat received. Check that the agent and panel are reachable." : node.effective_health_status === "degraded" ? "The agent reported recent connection or heartbeat errors." : node.effective_health_status === "stale" ? "The last health report is stale. Wait for a fresh heartbeat or check the agent." : node.effective_health_status === "healthy" ? "The agent recently reported healthy communication with Lumen Panel." : "The node is online, but no health report has been received yet."}</p>
                       {node.enabled && <button type="button" className="clean-disable-button" onClick={() => disableNode(node.id)}>Disable node</button>}
