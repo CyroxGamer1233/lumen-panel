@@ -54,3 +54,8 @@ The development agent reports its communication health to `POST /api/node/health
 The admin node list returns the last health status, report timestamp and age, consecutive failures, and last diagnostic message. A node is shown as `stale` when its heartbeat is missing or older than 90 seconds; disabled nodes are shown as `disabled`. A health report is agent-reported diagnostic information, not independent host verification or Minecraft process telemetry.
 
 If the panel is unreachable, the agent cannot deliver a fresh degraded report; the dashboard will eventually mark its last report stale.
+
+
+## Node agent reliability and recovery (Milestone 16)
+
+The development agent uses a 30-second heartbeat interval after successful communication. When a heartbeat fails or is rejected, it retries with exponential backoff and bounded jitter, capped at five minutes. A successful heartbeat resets the failure counter and returns to the normal interval. Ctrl+C or a termination signal wakes the retry wait and exits the loop cleanly. The agent never prints its node token. This improves communication recovery only; it does not add process execution, Docker access, or Minecraft power control.
