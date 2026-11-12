@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import AuthScreen from "./AuthScreen.jsx";
-import { Activity, Cpu, HardDrive, LayoutDashboard, LogOut, MemoryStick, Menu, Server, Terminal, Wifi, Zap } from "lucide-react";
+import { Activity, AlertCircle, CheckCircle2, Cpu, HardDrive, LayoutDashboard, LogOut, MemoryStick, Menu, Plug, RefreshCw, Server, Terminal, Wifi, Zap } from "lucide-react";
 
 function formatBytes(value) {
   const bytes = Number(value);
@@ -114,6 +114,10 @@ export default function App() {
   const [runtimeEvents, setRuntimeEvents] = useState([]);
   const [runtimeEventsLoading, setRuntimeEventsLoading] = useState(false);
   const [runtimeEventsError, setRuntimeEventsError] = useState("");
+  const [pufferStatus, setPufferStatus] = useState(null);
+  const [pufferLoading, setPufferLoading] = useState(false);
+  const [pufferTesting, setPufferTesting] = useState(false);
+  const [pufferMessage, setPufferMessage] = useState(null);
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
@@ -417,6 +421,45 @@ export default function App() {
     }
   };
 
+  const loadPufferStatus = async () => {
+    setPufferLoading(true);
+    setPufferMessage(null);
+    try {
+      const response = await fetch("/api/admin/integrations/pufferpanel", { credentials: "include" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Could not load integration status.");
+      setPufferStatus(data.integration || null);
+    } catch (error) {
+      setPufferMessage({ type: "error", text: error.message });
+    } finally {
+      setPufferLoading(false);
+    }
+  };
+
+  const testPufferConnection = async () => {
+    setPufferTesting(true);
+    setPufferMessage(null);
+    try {
+      const response = await fetch("/api/admin/integrations/pufferpanel/test", {
+        method: "POST",
+        credentials: "include",
+        headers: { "X-CSRF-Token": csrfToken }
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Connection test failed.");
+      setPufferMessage({ type: "success", text: "OAuth connection successful. Credentials were accepted." });
+    } catch (error) {
+      setPufferMessage({ type: "error", text: error.message });
+    } finally {
+      setPufferTesting(false);
+      await loadPufferStatus();
+    }
+  };
+
+  useEffect(() => {
+    if (active === "PufferPanel" && user?.role === "admin") loadPufferStatus();
+  }, [active, user?.role]);
+
   const handleAuthenticated = (nextUser, nextCsrfToken) => {
     setUser(nextUser);
     setCsrfToken(nextCsrfToken || "");
@@ -459,6 +502,7 @@ export default function App() {
         <button className={"nav-item " + (active === "Overview" ? "active" : "")} onClick={() => goTo("Overview")}><LayoutDashboard size={17}/><span>Overview</span></button>
         <button className={"nav-item " + (active === "Servers" ? "active" : "")} onClick={() => goTo("Servers")}><Server size={17}/><span>Servers</span><em>{servers.length}</em></button>
         {user?.role === "admin" && <button className={"nav-item " + (active === "Nodes" ? "active" : "")} onClick={() => goTo("Nodes")}><Wifi size={17}/><span>Nodes</span></button>}
+        {user?.role === "admin" && <button className={"nav-item " + (active === "PufferPanel" ? "active" : "")} onClick={() => goTo("PufferPanel")}><Plug size={17}/><span>PufferPanel</span></button>}
         <div className="sidebar-bottom clean-profile">
           <div className="profile-avatar">{user?.name?.[0]?.toUpperCase() || "L"}</div>
           <div className="profile-copy"><b>{user?.name || "Lumen user"}</b><small>{user?.role === "admin" ? "Admin" : "Member"}</small></div>
@@ -476,7 +520,50 @@ export default function App() {
         </header>
 
         <div className="page-content clean-content">
-          {active === "Nodes" && user?.role === "admin" ? (
+          {active === "PufferPanel" && user?.role === "admin" ? (
+            <section className="puffer-page">
+              <div className="clean-page-heading">
+                <div><h1>PufferPanel</h1><p>Connect your server engine to the Lumen control panel.</p></div>
+                <button className="clean-node-open-button" type="button" onClick={loadPufferStatus} disabled={pufferLoading}>
+                  <RefreshCw size={14} className={pufferLoading ? "puffer-spin" : ""}/> Refresh
+                </button>
+              </div>
+
+              <section className="server-card puffer-connection-card">
+                <div className="puffer-card-top">
+                  <div className="puffer-brand-icon"><Plug size={20}/></div>
+                  <div className="puffer-card-title"><h2>Connection status</h2><p>Secure server-side OAuth integration</p></div>
+                  <span className={"puffer-status-pill " + (pufferStatus?.configured ? "configured" : "not-configured")}>
+                    <span/> {pufferStatus?.configured ? "Configured" : "Not configured"}
+                  </span>
+                </div>
+                <div className="puffer-details-grid">
+                  <div><small>INSTANCE</small><strong>{pufferStatus?.hostname || "Not set"}</strong></div>
+                  <div><small>AUTHENTICATION</small><strong>OAuth 2.0 · Client credentials</strong></div>
+                  <div><small>INTEGRATION MODE</small><strong>Connection test only</strong></div>
+                </div>
+                {pufferStatus?.missing?.length > 0 && <div className="puffer-notice"><AlertCircle size={16}/><span>Missing server settings: {pufferStatus.missing.join(", ")}</span></div>}
+                {pufferStatus?.error && <div className="puffer-notice"><AlertCircle size={16}/><span>{pufferStatus.error}</span></div>}
+                {pufferMessage && <div className={"puffer-result " + pufferMessage.type}>{pufferMessage.type === "success" ? <CheckCircle2 size={16}/> : <AlertCircle size={16}/>}<span>{pufferMessage.text}</span></div>}
+                <div className="puffer-actions">
+                  <button className="primary-button" type="button" onClick={testPufferConnection} disabled={!pufferStatus?.configured || pufferTesting || pufferLoading}>
+                    {pufferTesting ? <><RefreshCw size={15} className="puffer-spin"/> Testing…</> : "Test connection"}
+                  </button>
+                </div>
+              </section>
+
+              <section className="server-card puffer-security-card">
+                <div className="clean-section-heading"><h2>Security</h2><span>Protected</span></div>
+                <ul>
+                  <li>OAuth client credentials stay on the backend.</li>
+                  <li>Access tokens are discarded after the connection test.</li>
+                  <li>Only administrators can view status or run a test.</li>
+                  <li>No server provisioning or power actions are enabled yet.</li>
+                </ul>
+              </section>
+              <p className="puffer-footnote">Add PUFFERPANEL_URL, PUFFERPANEL_CLIENT_ID and PUFFERPANEL_CLIENT_SECRET to the backend environment. Never put these values in frontend code or chat.</p>
+            </section>
+          ) : active === "Nodes" && user?.role === "admin" ? (
             <>
               {selectedNodeId === null ? <>
                 <div className="clean-page-heading"><div><h1>Nodes</h1><p>Manage your Linux host connections.</p></div></div>
