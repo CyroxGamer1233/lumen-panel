@@ -200,3 +200,12 @@ Authentication requires a reachable PostgreSQL database and valid environment va
 - Node agent events are stored separately from per-server runtime activity and are visible to administrators on Nodes → Details.
 - The API accepts only `agent_started` and `heartbeat_accepted`, applies the existing node API rate limit, and stores short messages with timestamps.
 - These records confirm agent/API communication only. They do not prove that Minecraft is running and do not enable Docker, shell execution, or server power controls.
+
+
+## Node agent health monitoring (Milestone 15)
+
+- Added authenticated `POST /api/node/health` for allowlisted healthy/degraded diagnostic reports.
+- The heartbeat-only agent tracks consecutive heartbeat failures and reports the latest communication status when the panel is reachable.
+- Admin node data includes health status, report age, consecutive failures, and a short diagnostic message.
+- Nodes → Details displays these diagnostics and distinguishes stale or disabled nodes.
+- These are agent-reported communication diagnostics only. No CPU/RAM telemetry, shell execution, Docker integration, or Minecraft process control is included.
