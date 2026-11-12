@@ -168,7 +168,7 @@ await pool.query(`
   )
 `);
 await pool.query("CREATE INDEX IF NOT EXISTS server_activity_events_server_id_id_idx ON server_activity_events(server_id, id DESC)");
-await pool.query(\`
+await pool.query(`
   CREATE TABLE IF NOT EXISTS node_activity_events (
     id BIGSERIAL PRIMARY KEY,
     node_id BIGINT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
@@ -176,7 +176,7 @@ await pool.query(\`
     message VARCHAR(200),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )
-\`);
+`);
 await pool.query("CREATE INDEX IF NOT EXISTS node_activity_events_node_id_id_idx ON node_activity_events(node_id, id DESC)");
 
 await pool.query(`
