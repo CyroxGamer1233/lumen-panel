@@ -128,7 +128,7 @@ function retryDelayMs() {
   const exponent = Math.min(Math.max(consecutiveFailures - 1, 0), 4);
   const backoff = Math.min(maxRetryMs, baseIntervalMs * (2 ** exponent));
   const jitter = 0.8 + Math.random() * 0.4;
-  return Math.round(backoff * jitter);
+  return Math.min(maxRetryMs, Math.round(backoff * jitter));
 }
 
 function sleep(ms) {
