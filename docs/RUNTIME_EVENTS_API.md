@@ -45,3 +45,12 @@ The node agent reports two node-level diagnostic events to `POST /api/node/event
 The endpoint accepts only these fixed event types, trims messages to 200 characters, applies the node API rate limit, and associates each event with the authenticated node. Admins can read the latest 50 events with `GET /api/admin/nodes/:id/events`.
 
 The Nodes → Details page displays this node-agent activity. It is separate from per-server Activity History: these events do not claim that Minecraft is installed or running. The agent still performs heartbeat reporting only; it does not execute shell commands, use Docker, or control Minecraft.
+
+
+## Node agent health diagnostics (Milestone 15)
+
+The development agent reports its communication health to `POST /api/node/health` with its existing Bearer node token. The fixed status allowlist is `healthy` or `degraded`; the request includes a bounded consecutive-failure count and an optional message capped at 200 characters. Reports are rate-limited and scoped to the authenticated, enabled node.
+
+The admin node list returns the last health status, report timestamp and age, consecutive failures, and last diagnostic message. A node is shown as `stale` when its heartbeat is missing or older than 90 seconds; disabled nodes are shown as `disabled`. A health report is agent-reported diagnostic information, not independent host verification or Minecraft process telemetry.
+
+If the panel is unreachable, the agent cannot deliver a fresh degraded report; the dashboard will eventually mark its last report stale.
