@@ -218,3 +218,12 @@ Authentication requires a reachable PostgreSQL database and valid environment va
 - A successful heartbeat resets the retry schedule.
 - Ctrl+C and termination signals wake the agent's wait loop and allow a clean shutdown.
 - The agent remains heartbeat-only and does not execute shell commands, use Docker, or control Minecraft.
+
+
+## Milestone 17 — Node Resource Telemetry & Diagnostics
+
+- The authenticated node agent reports host CPU usage, total/used memory, OS uptime, agent process RSS memory, and 1-minute load average.
+- The API validates bounded numeric values and stores the latest snapshot per enabled node.
+- Admin node details show the latest host metrics and whether the report is fresh (90 seconds) or stale.
+- Metrics describe the host running the agent; they are not Minecraft-container or per-server resource usage.
+- The first CPU sample may show as collecting until a second sample is available.
