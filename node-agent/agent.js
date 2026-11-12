@@ -3,7 +3,10 @@ import process from "node:process";
 const token = process.env.LUMEN_NODE_TOKEN;
 const panelUrl = (process.env.LUMEN_PANEL_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
 const version = process.env.LUMEN_AGENT_VERSION || "0.1.0";
-const intervalMs = 30_000;
+const baseIntervalMs = 30_000;
+const maxRetryMs = 5 * 60_000;
+let sleepTimer = null;
+let wakeSleep = null;
 
 if (!token || !/^lmn_node_[A-Za-z0-9_-]{40,}$/.test(token)) {
   console.error("Missing or invalid LUMEN_NODE_TOKEN. Set it in node-agent/.env.");
@@ -102,7 +105,7 @@ async function heartbeat() {
         console.error("[Lumen Agent] Check that this node is enabled and its token is correct.");
       }
       await reportHealth("degraded", lastErrorMessage);
-      return;
+      return false;
     }
 
     const result = await response.json();
@@ -111,19 +114,42 @@ async function heartbeat() {
     console.log(`[Lumen Agent] Connected • v${version} • next heartbeat in ${result.next_heartbeat_seconds || 30}s`);
     await reportHealth("healthy");
     await reportEvent("heartbeat_accepted", `Heartbeat accepted • agent v${version}`);
+    return true;
   } catch (error) {
     consecutiveFailures = Math.min(1000, consecutiveFailures + 1);
     lastErrorMessage = `API unavailable: ${error.message}`.slice(0, 200);
     console.error(`[Lumen Agent] ${lastErrorMessage}`);
     await reportHealth("degraded", lastErrorMessage);
+    return false;
   }
+}
+
+function retryDelayMs() {
+  const exponent = Math.min(Math.max(consecutiveFailures - 1, 0), 4);
+  const backoff = Math.min(maxRetryMs, baseIntervalMs * (2 ** exponent));
+  const jitter = 0.8 + Math.random() * 0.4;
+  return Math.round(backoff * jitter);
+}
+
+function sleep(ms) {
+  return new Promise(resolve => {
+    wakeSleep = resolve;
+    sleepTimer = setTimeout(() => {
+      sleepTimer = null;
+      wakeSleep = null;
+      resolve();
+    }, ms);
+  });
 }
 
 function stop() {
   if (stopping) return;
   stopping = true;
-  console.log("\n[Lumen Agent] Stopped.");
-  process.exit(0);
+  if (sleepTimer) clearTimeout(sleepTimer);
+  sleepTimer = null;
+  if (wakeSleep) wakeSleep();
+  wakeSleep = null;
+  console.log("\n[Lumen Agent] Shutdown requested.");
 }
 
 process.on("SIGINT", stop);
@@ -132,9 +158,13 @@ process.on("SIGTERM", stop);
 console.log("[Lumen Agent] Starting heartbeat-only development agent.");
 console.log(`[Lumen Agent] API: ${heartbeatUrl}`);
 await reportEvent("agent_started", `Agent v${version} started`);
-await heartbeat();
+let connected = await heartbeat();
 
 while (!stopping) {
-  await new Promise(resolve => setTimeout(resolve, intervalMs));
-  if (!stopping) await heartbeat();
+  const delay = connected ? baseIntervalMs : retryDelayMs();
+  console.log(`[Lumen Agent] Next ${connected ? "heartbeat" : "retry"} in ${Math.round(delay / 1000)}s.`);
+  await sleep(delay);
+  if (!stopping) connected = await heartbeat();
 }
+
+console.log("[Lumen Agent] Shutdown complete.");
