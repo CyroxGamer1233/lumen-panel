@@ -123,6 +123,11 @@ await pool.query(`
 `);
 
 await pool.query("CREATE TABLE IF NOT EXISTS nodes (id BIGSERIAL PRIMARY KEY, name VARCHAR(60) NOT NULL, token_hash CHAR(64) NOT NULL UNIQUE, enabled BOOLEAN NOT NULL DEFAULT TRUE, agent_version VARCHAR(40), last_seen_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+await pool.query("ALTER TABLE nodes ADD COLUMN IF NOT EXISTS agent_health_status VARCHAR(16) NOT NULL DEFAULT 'unknown'");
+await pool.query("ALTER TABLE nodes ADD COLUMN IF NOT EXISTS agent_health_message VARCHAR(200)");
+await pool.query("ALTER TABLE nodes ADD COLUMN IF NOT EXISTS agent_health_reported_at TIMESTAMPTZ");
+await pool.query("ALTER TABLE nodes ADD COLUMN IF NOT EXISTS agent_consecutive_failures INTEGER NOT NULL DEFAULT 0");
+
 
 await pool.query(`
   CREATE TABLE IF NOT EXISTS servers (
@@ -316,10 +321,16 @@ app.get("/api/admin/nodes", requireAdmin, async (_req, res, next) => {
   try {
     const result = await pool.query(`
       SELECT id, name, enabled, agent_version, last_seen_at, created_at,
+        agent_health_status, agent_health_message, agent_health_reported_at, agent_consecutive_failures,
         CASE WHEN enabled = FALSE THEN 'disabled'
           WHEN last_seen_at > NOW() - INTERVAL '90 seconds' THEN 'online' ELSE 'offline' END AS status,
         CASE WHEN last_seen_at IS NULL THEN NULL
-          ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - last_seen_at))))::INTEGER END AS heartbeat_age_seconds
+          ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - last_seen_at))))::INTEGER END AS heartbeat_age_seconds,
+        CASE WHEN agent_health_reported_at IS NULL THEN NULL
+          ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - agent_health_reported_at))))::INTEGER END AS health_report_age_seconds,
+        CASE WHEN enabled = FALSE THEN 'disabled'
+          WHEN last_seen_at IS NULL OR last_seen_at <= NOW() - INTERVAL '90 seconds' THEN 'stale'
+          ELSE COALESCE(agent_health_status, 'unknown') END AS effective_health_status
       FROM nodes ORDER BY created_at DESC
     `);
     res.json({ nodes: result.rows });
@@ -355,6 +366,27 @@ app.post("/api/node/heartbeat", nodeHeartbeatLimiter, requireNodeToken, async (r
       next_heartbeat_seconds: 30,
       server_time: new Date().toISOString()
     });
+  } catch (error) { next(error); }
+});
+
+// Node agent health reports are diagnostic metadata, not host resource telemetry.
+app.post("/api/node/health", nodeHeartbeatLimiter, requireNodeToken, async (req, res, next) => {
+  try {
+    const status = typeof req.body.status === "string" ? req.body.status : "";
+    if (!["healthy", "degraded"].includes(status)) {
+      return res.status(400).json({ error: "Health status must be healthy or degraded." });
+    }
+    const rawFailures = req.body.consecutiveFailures;
+    if (!Number.isInteger(rawFailures) || rawFailures < 0 || rawFailures > 1000) {
+      return res.status(400).json({ error: "consecutiveFailures must be an integer from 0 to 1000." });
+    }
+    const message = typeof req.body.message === "string" ? req.body.message.trim().slice(0, 200) : null;
+    const result = await pool.query(
+      "UPDATE nodes SET agent_health_status = $1, agent_health_message = $2, agent_health_reported_at = NOW(), agent_consecutive_failures = $3 WHERE id = $4 AND enabled = TRUE RETURNING id, agent_health_status, agent_health_reported_at, agent_consecutive_failures",
+      [status, message || null, rawFailures, req.nodeId]
+    );
+    if (!result.rowCount) return res.status(401).json({ error: "Node is disabled." });
+    res.json({ accepted: true, health: result.rows[0] });
   } catch (error) { next(error); }
 });
 
