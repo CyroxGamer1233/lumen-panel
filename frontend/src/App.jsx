@@ -55,7 +55,16 @@ function MetricHistoryChart({ title, points, series, maxValue = 100, unit = "%" 
             const value = rawValue == null || rawValue === "" ? NaN : Number(rawValue);
             return Number.isFinite(value) ? `${xFor(index)},${yFor(value)}` : null;
           }).filter(Boolean).join(" ");
-          return <polyline key={item.key} points={coordinates} className={`clean-history-line ${item.className}`} />;
+          return (
+            <g key={item.key}>
+              <polyline points={coordinates} className={`clean-history-line ${item.className}`} />
+              {points.map((point, index) => {
+                const rawValue = point[item.key];
+                const value = rawValue == null || rawValue === "" ? NaN : Number(rawValue);
+                return Number.isFinite(value) ? <circle key={index} cx={xFor(index)} cy={yFor(value)} r="2.5" className={`clean-history-point ${item.className}`} /> : null;
+              })}
+            </g>
+          );
         })}
       </svg>
       <div className="clean-history-time-labels"><span>{startLabel}</span><span>{endLabel}</span></div>
