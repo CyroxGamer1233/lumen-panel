@@ -1,4 +1,5 @@
 import process from "node:process";
+import os from "node:os";
 
 const token = process.env.LUMEN_NODE_TOKEN;
 const panelUrl = (process.env.LUMEN_PANEL_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
@@ -30,6 +31,8 @@ if (!["127.0.0.1", "localhost"].includes(target.hostname)) {
 const heartbeatUrl = `${panelUrl}/api/node/heartbeat`;
 const eventsUrl = `${panelUrl}/api/node/events`;
 const healthUrl = `${panelUrl}/api/node/health`;
+const metricsUrl = `${panelUrl}/api/node/metrics`;
+let previousCpuSnapshot = null;
 let stopping = false;
 let consecutiveFailures = 0;
 let lastErrorMessage = null;
@@ -84,6 +87,65 @@ async function reportHealth(status, message = null) {
   }
 }
 
+
+function readCpuSnapshot() {
+  const cpus = os.cpus();
+  let idle = 0;
+  let total = 0;
+  for (const cpu of cpus) {
+    const times = cpu.times;
+    idle += times.idle;
+    total += times.user + times.nice + times.sys + times.idle + times.irq;
+  }
+  return { idle, total };
+}
+
+function readCpuUsagePercent() {
+  const current = readCpuSnapshot();
+  const previous = previousCpuSnapshot;
+  previousCpuSnapshot = current;
+  if (!previous) return null;
+  const totalDelta = current.total - previous.total;
+  const idleDelta = current.idle - previous.idle;
+  if (totalDelta <= 0) return null;
+  return Math.round(Math.max(0, Math.min(100, (1 - idleDelta / totalDelta) * 100)) * 10) / 10;
+}
+
+async function reportMetrics() {
+  const totalMemory = os.totalmem();
+  const freeMemory = os.freemem();
+  const memoryUsed = Math.max(0, totalMemory - freeMemory);
+  const rss = process.memoryUsage().rss;
+  const payload = {
+    cpuUsagePercent: readCpuUsagePercent(),
+    memoryTotalBytes: totalMemory,
+    memoryUsedBytes: memoryUsed,
+    uptimeSeconds: Math.floor(os.uptime()),
+    processRssBytes: rss,
+    load1m: Number(os.loadavg()[0].toFixed(2))
+  };
+  try {
+    const response = await fetch(metricsUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(10_000)
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      console.error(`[Lumen Agent] Metrics report rejected: HTTP ${response.status} — ${body.error || "request failed"}`);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error(`[Lumen Agent] Metrics report unavailable: ${error.message}`);
+    return false;
+  }
+}
+
 async function heartbeat() {
   try {
     const response = await fetch(heartbeatUrl, {
@@ -113,6 +175,7 @@ async function heartbeat() {
     lastErrorMessage = null;
     console.log(`[Lumen Agent] Connected • v${version} • next heartbeat in ${result.next_heartbeat_seconds || 30}s`);
     await reportHealth("healthy");
+    await reportMetrics();
     await reportEvent("heartbeat_accepted", `Heartbeat accepted • agent v${version}`);
     return true;
   } catch (error) {
