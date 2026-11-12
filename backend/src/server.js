@@ -128,6 +128,26 @@ await pool.query("ALTER TABLE nodes ADD COLUMN IF NOT EXISTS agent_health_messag
 await pool.query("ALTER TABLE nodes ADD COLUMN IF NOT EXISTS agent_health_reported_at TIMESTAMPTZ");
 await pool.query("ALTER TABLE nodes ADD COLUMN IF NOT EXISTS agent_consecutive_failures INTEGER NOT NULL DEFAULT 0");
 
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS node_metrics (
+    node_id BIGINT PRIMARY KEY REFERENCES nodes(id) ON DELETE CASCADE,
+    cpu_usage_percent DOUBLE PRECISION,
+    memory_total_bytes BIGINT NOT NULL,
+    memory_used_bytes BIGINT NOT NULL,
+    uptime_seconds BIGINT NOT NULL,
+    process_rss_bytes BIGINT NOT NULL,
+    load_1m DOUBLE PRECISION NOT NULL,
+    reported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (memory_total_bytes > 0),
+    CHECK (memory_used_bytes >= 0 AND memory_used_bytes <= memory_total_bytes),
+    CHECK (uptime_seconds >= 0),
+    CHECK (process_rss_bytes >= 0),
+    CHECK (cpu_usage_percent IS NULL OR cpu_usage_percent BETWEEN 0 AND 100),
+    CHECK (load_1m >= 0)
+  )
+`);
+
+
 
 await pool.query(`
   CREATE TABLE IF NOT EXISTS servers (
@@ -333,8 +353,14 @@ app.get("/api/admin/nodes", requireAdmin, async (_req, res, next) => {
           WHEN last_seen_at <= NOW() - INTERVAL '90 seconds'
             OR agent_health_reported_at IS NULL
             OR agent_health_reported_at <= NOW() - INTERVAL '90 seconds' THEN 'stale'
-          ELSE COALESCE(agent_health_status, 'unknown') END AS effective_health_status
-      FROM nodes ORDER BY created_at DESC
+          ELSE COALESCE(agent_health_status, 'unknown') END AS effective_health_status,
+        nm.cpu_usage_percent, nm.memory_total_bytes, nm.memory_used_bytes,
+        nm.uptime_seconds, nm.process_rss_bytes, nm.load_1m, nm.reported_at AS metrics_reported_at,
+        CASE WHEN nm.reported_at IS NULL THEN NULL
+          ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - nm.reported_at))))::INTEGER END AS metrics_age_seconds
+      FROM nodes
+      LEFT JOIN node_metrics nm ON nm.node_id = nodes.id
+      ORDER BY nodes.created_at DESC
     `);
     res.json({ nodes: result.rows });
   } catch (error) { next(error); }
@@ -390,6 +416,45 @@ app.post("/api/node/health", nodeHeartbeatLimiter, requireNodeToken, async (req,
     );
     if (!result.rowCount) return res.status(401).json({ error: "Node is disabled." });
     res.json({ accepted: true, health: result.rows[0] });
+  } catch (error) { next(error); }
+});
+
+// Latest host-level metrics reported by the authenticated node agent.
+app.post("/api/node/metrics", nodeHeartbeatLimiter, requireNodeToken, async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const integerFields = ["memoryTotalBytes", "memoryUsedBytes", "uptimeSeconds", "processRssBytes"];
+    for (const field of integerFields) {
+      if (!Number.isSafeInteger(body[field]) || body[field] < 0) {
+        return res.status(400).json({ error: field + " must be a non-negative safe integer." });
+      }
+    }
+    if (body.memoryTotalBytes < 1 || body.memoryUsedBytes > body.memoryTotalBytes) {
+      return res.status(400).json({ error: "Memory values are outside the valid range." });
+    }
+    if (body.cpuUsagePercent !== null && (!Number.isFinite(body.cpuUsagePercent) || body.cpuUsagePercent < 0 || body.cpuUsagePercent > 100)) {
+      return res.status(400).json({ error: "cpuUsagePercent must be null or between 0 and 100." });
+    }
+    if (!Number.isFinite(body.load1m) || body.load1m < 0 || body.load1m > 100000) {
+      return res.status(400).json({ error: "load1m must be a finite non-negative number." });
+    }
+    const result = await pool.query(
+      `INSERT INTO node_metrics
+        (node_id, cpu_usage_percent, memory_total_bytes, memory_used_bytes, uptime_seconds, process_rss_bytes, load_1m, reported_at)
+       SELECT id, $2, $3, $4, $5, $6, $7, NOW() FROM nodes WHERE id = $1 AND enabled = TRUE
+       ON CONFLICT (node_id) DO UPDATE SET
+         cpu_usage_percent = EXCLUDED.cpu_usage_percent,
+         memory_total_bytes = EXCLUDED.memory_total_bytes,
+         memory_used_bytes = EXCLUDED.memory_used_bytes,
+         uptime_seconds = EXCLUDED.uptime_seconds,
+         process_rss_bytes = EXCLUDED.process_rss_bytes,
+         load_1m = EXCLUDED.load_1m,
+         reported_at = NOW()
+       RETURNING node_id, reported_at`,
+      [req.nodeId, body.cpuUsagePercent, body.memoryTotalBytes, body.memoryUsedBytes, body.uptimeSeconds, body.processRssBytes, body.load1m]
+    );
+    if (!result.rowCount) return res.status(401).json({ error: "Node is disabled." });
+    res.status(202).json({ accepted: true, reported_at: result.rows[0].reported_at });
   } catch (error) { next(error); }
 });
 
