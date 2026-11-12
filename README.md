@@ -227,3 +227,7 @@ Authentication requires a reachable PostgreSQL database and valid environment va
 - Admin node details show the latest host metrics and whether the report is fresh (90 seconds) or stale.
 - Metrics describe the host running the agent; they are not Minecraft-container or per-server resource usage.
 - The first CPU sample may show as collecting until a second sample is available.
+
+
+- Node resource telemetry: host CPU, memory, uptime, agent RSS and load average, with stale-report detection.
+- API reference: [Node Metrics API](docs/NODE_METRICS_API.md).
