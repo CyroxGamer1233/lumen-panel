@@ -21,7 +21,7 @@ function formatDuration(value) {
   return days + "d " + hours + "h " + minutes + "m";
 }
 function averageHistory(points, key) {
-  const values = points.map(point => Number(point[key])).filter(Number.isFinite);
+  const values = points.map(point => point[key] == null || point[key] === "" ? NaN : Number(point[key])).filter(Number.isFinite);
   return values.length ? (values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1) : "—";
 }
 
@@ -51,7 +51,7 @@ function MetricHistoryChart({ title, points, series, maxValue = 100, unit = "%" 
         })}
         {series.map(item => {
           const coordinates = points.map((point, index) => {
-            const value = Number(point[item.key]);
+            const rawValue = point[item.key];\n            const value = rawValue == null || rawValue === "" ? NaN : Number(rawValue);
             return Number.isFinite(value) ? `${xFor(index)},${yFor(value)}` : null;
           }).filter(Boolean).join(" ");
           return <polyline key={item.key} points={coordinates} className={`clean-history-line ${item.className}`} />;
