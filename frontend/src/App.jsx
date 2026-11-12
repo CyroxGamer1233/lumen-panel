@@ -38,6 +38,9 @@ export default function App() {
   const [nodeEvents, setNodeEvents] = useState([]);
   const [nodeEventsLoading, setNodeEventsLoading] = useState(false);
   const [nodeEventsError, setNodeEventsError] = useState("");
+  const [nodeAlerts, setNodeAlerts] = useState([]);
+  const [nodeAlertsLoading, setNodeAlertsLoading] = useState(false);
+  const [nodeAlertsError, setNodeAlertsError] = useState("");
   const [nodesUpdatedAt, setNodesUpdatedAt] = useState(null);
   const [servers, setServers] = useState([]);
   const [selectedServerId, setSelectedServerId] = useState(null);
@@ -252,6 +255,23 @@ export default function App() {
     }
   };
 
+  const loadNodeAlerts = async (nodeId = selectedNodeId) => {
+    if (nodeId === null) return;
+    setNodeAlertsLoading(true);
+    setNodeAlertsError("");
+    try {
+      const response = await fetch(`/api/admin/nodes/${nodeId}/alerts`, { credentials: "include" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Unable to load node alerts.");
+      setNodeAlerts(data.alerts || []);
+    } catch (error) {
+      setNodeAlertsError(error.message);
+      setNodeAlerts([]);
+    } finally {
+      setNodeAlertsLoading(false);
+    }
+  };
+
   const loadNodeEvents = async (nodeId = selectedNodeId) => {
     if (!nodeId) return;
     setNodeEvents([]);
@@ -272,6 +292,7 @@ export default function App() {
   useEffect(() => {
     if (active !== "Nodes" || user?.role !== "admin" || selectedNodeId === null) return;
     loadNodeEvents(selectedNodeId);
+    loadNodeAlerts(selectedNodeId);
   }, [active, user?.role, selectedNodeId]);
 
   const refreshNodeDetails = async () => {
@@ -447,6 +468,24 @@ export default function App() {
                         <div><span>1-MIN LOAD AVERAGE</span><strong>{node.load_1m == null ? "—" : Number(node.load_1m).toFixed(2)}</strong></div>
                         <div><span>LAST METRICS REPORT</span><strong>{node.metrics_reported_at ? new Date(node.metrics_reported_at).toLocaleString() : "No report yet"}</strong></div>
                       </div>
+                    </section>
+                    <section className="clean-node-alerts">
+                      <div className="clean-server-panel-heading">
+                        <div><Activity size={16}/><h2>Alerts & diagnostics</h2></div>
+                        <button type="button" className="clean-refresh-button" onClick={() => loadNodeAlerts(node.id)} disabled={nodeAlertsLoading}>{nodeAlertsLoading ? "Loading…" : "↻ Refresh"}</button>
+                      </div>
+                      <p className="clean-form-note">Warnings trigger at 90% CPU or memory; critical alerts trigger at 95%. Alerts resolve automatically after readings fall below the threshold.</p>
+                      {nodeAlertsError && <p className="clean-node-error">{nodeAlertsError}</p>}
+                      {nodeAlertsLoading && nodeAlerts.length === 0 ? <div className="clean-activity-empty">Loading alerts…</div> : nodeAlerts.length === 0 ? <div className="clean-activity-empty">No resource alerts recorded.</div> : (
+                        <div className="clean-node-alert-list">
+                          {nodeAlerts.map(alert => (
+                            <article className="clean-node-alert-item" key={alert.id}>
+                              <div><strong>{alert.alert_type === "cpu_high" ? "High CPU usage" : "High memory usage"}</strong><p>{alert.message}</p><small>{new Date(alert.last_seen_at).toLocaleString()}</small></div>
+                              <span className={"clean-alert-state " + alert.status + " " + alert.severity}>{alert.status === "active" ? alert.severity : "resolved"}</span>
+                            </article>
+                          ))}
+                        </div>
+                      )}
                     </section>
                     <div className="clean-node-detail-footer">
                       <p>{node.status === "disabled" ? "This node has been disabled." : node.status !== "online" ? "No recent heartbeat received. Check that the agent and panel are reachable." : node.effective_health_status === "degraded" ? "The agent reported recent connection or heartbeat errors." : node.effective_health_status === "stale" ? "The last health report is stale. Wait for a fresh heartbeat or check the agent." : node.effective_health_status === "healthy" ? "The agent recently reported healthy communication with Lumen Panel." : "The node is online, but no health report has been received yet."}</p>
