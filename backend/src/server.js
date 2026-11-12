@@ -146,6 +146,18 @@ await pool.query(`
     CHECK (load_1m >= 0)
   )
 `);
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS node_metric_history (
+    id BIGSERIAL PRIMARY KEY,
+    node_id BIGINT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+    cpu_usage_percent DOUBLE PRECISION,
+    memory_used_percent DOUBLE PRECISION NOT NULL CHECK (memory_used_percent BETWEEN 0 AND 100),
+    load_1m DOUBLE PRECISION NOT NULL CHECK (load_1m >= 0),
+    sampled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (cpu_usage_percent IS NULL OR cpu_usage_percent BETWEEN 0 AND 100)
+  )
+`);
+await pool.query("CREATE INDEX IF NOT EXISTS node_metric_history_node_sampled_idx ON node_metric_history (node_id, sampled_at DESC)");
 
 
 
@@ -486,6 +498,14 @@ app.post("/api/node/metrics", nodeHeartbeatLimiter, requireNodeToken, async (req
     if (!result.rowCount) return res.status(401).json({ error: "Node is disabled." });
 
     const memoryPercent = (body.memoryUsedBytes / body.memoryTotalBytes) * 100;
+    await pool.query(
+      "INSERT INTO node_metric_history (node_id, cpu_usage_percent, memory_used_percent, load_1m, sampled_at) VALUES ($1, $2, $3, $4, NOW())",
+      [req.nodeId, body.cpuUsagePercent, memoryPercent, body.load1m]
+    );
+    await pool.query(
+      "DELETE FROM node_metric_history WHERE node_id = $1 AND sampled_at < NOW() - INTERVAL '7 days'",
+      [req.nodeId]
+    );
     const conditions = [
       { type: "cpu_high", value: body.cpuUsagePercent, label: "CPU usage" },
       { type: "memory_high", value: memoryPercent, label: "Memory usage" }
@@ -509,6 +529,40 @@ app.post("/api/node/metrics", nodeHeartbeatLimiter, requireNodeToken, async (req
       }
     }
     res.status(202).json({ accepted: true, reported_at: result.rows[0].reported_at, alert_threshold_percent: 90 });
+  } catch (error) { next(error); }
+});
+
+// Admin-only historical node metrics. Buckets are bounded to keep graph responses small.
+app.get("/api/admin/nodes/:id/metrics-history", requireAdmin, async (req, res, next) => {
+  try {
+    if (!/^\\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid node ID." });
+    const ranges = {
+      "1h": { duration: "1 hour", bucket: "1 minute" },
+      "6h": { duration: "6 hours", bucket: "5 minutes" },
+      "24h": { duration: "24 hours", bucket: "15 minutes" },
+      "7d": { duration: "7 days", bucket: "1 hour" }
+    };
+    const range = typeof req.query.range === "string" ? req.query.range : "24h";
+    if (!ranges[range]) return res.status(400).json({ error: "Choose a supported range: 1h, 6h, 24h or 7d." });
+    const node = await pool.query("SELECT id FROM nodes WHERE id = $1", [req.params.id]);
+    if (!node.rowCount) return res.status(404).json({ error: "Node not found." });
+    const selected = ranges[range];
+    const result = await pool.query(`
+      SELECT
+        date_bin($2::interval, sampled_at, TIMESTAMPTZ '2000-01-01') AS bucket_at,
+        ROUND(AVG(cpu_usage_percent)::numeric, 1) AS cpu_avg,
+        ROUND(MIN(cpu_usage_percent)::numeric, 1) AS cpu_min,
+        ROUND(MAX(cpu_usage_percent)::numeric, 1) AS cpu_max,
+        ROUND(AVG(memory_used_percent)::numeric, 1) AS memory_avg,
+        ROUND(AVG(load_1m)::numeric, 2) AS load_avg,
+        COUNT(*)::INTEGER AS sample_count
+      FROM node_metric_history
+      WHERE node_id = $1 AND sampled_at >= NOW() - $3::interval
+      GROUP BY bucket_at
+      ORDER BY bucket_at ASC
+      LIMIT 500
+    `, [req.params.id, selected.bucket, selected.duration]);
+    res.json({ node_id: req.params.id, range, retention_days: 7, points: result.rows });
   } catch (error) { next(error); }
 });
 
