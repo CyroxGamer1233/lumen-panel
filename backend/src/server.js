@@ -9,6 +9,7 @@ import argon2 from "argon2";
 import pg from "pg";
 import { isIP } from "node:net";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { getPufferPanelStatus, testPufferPanelConnection } from "./services/pufferpanel.js";
 
 dotenv.config();
 
@@ -69,6 +70,14 @@ const nodeHeartbeatLimiter = rateLimit({
   limit: 30,
   standardHeaders: "draft-7",
   legacyHeaders: false
+});
+
+const pufferPanelTestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many PufferPanel connection tests. Try again later." }
 });
 
 const csrfMatches = (expected, supplied) => {
@@ -253,6 +262,22 @@ const requireNodeToken = async (req, res, next) => {
     next();
   } catch (error) { next(error); }
 };
+
+// PufferPanel integration foundation: exposes configuration state and verifies OAuth credentials only.
+// It does not create users/servers or expose PufferPanel credentials to the browser.
+app.get("/api/admin/integrations/pufferpanel", requireAdmin, (_req, res) => {
+  res.json({ integration: getPufferPanelStatus() });
+});
+
+app.post("/api/admin/integrations/pufferpanel/test", requireAdmin, requireCsrf, pufferPanelTestLimiter, async (_req, res) => {
+  try {
+    const result = await testPufferPanelConnection();
+    res.json({ connected: true, token_expires_in_seconds: result.expiresIn });
+  } catch (error) {
+    const status = error.code === "PUFFER_NOT_CONFIGURED" ? 409 : 502;
+    res.status(status).json({ error: error.publicMessage || "PufferPanel connection test failed." });
+  }
+});
 
 app.get("/api/health", async (_req, res) => {
   try {
