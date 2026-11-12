@@ -209,3 +209,12 @@ Authentication requires a reachable PostgreSQL database and valid environment va
 - Admin node data includes health status, report age, consecutive failures, and a short diagnostic message.
 - Nodes → Details displays these diagnostics and distinguishes stale or disabled nodes.
 - These are agent-reported communication diagnostics only. No CPU/RAM telemetry, shell execution, Docker integration, or Minecraft process control is included.
+
+
+## Node agent reliability and recovery (Milestone 16)
+
+- Successful heartbeats continue on a 30-second interval.
+- Failed or rejected heartbeats use exponential retry backoff with bounded jitter, capped at five minutes.
+- A successful heartbeat resets the retry schedule.
+- Ctrl+C and termination signals wake the agent's wait loop and allow a clean shutdown.
+- The agent remains heartbeat-only and does not execute shell commands, use Docker, or control Minecraft.
