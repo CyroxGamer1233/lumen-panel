@@ -218,7 +218,7 @@ function stop() {
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);
 
-console.log("[Lumen Agent] Starting heartbeat-only development agent.");
+console.log("[Lumen Agent] Starting development agent with host telemetry.");
 console.log(`[Lumen Agent] API: ${heartbeatUrl}`);
 await reportEvent("agent_started", `Agent v${version} started`);
 let connected = await heartbeat();
