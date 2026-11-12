@@ -535,7 +535,7 @@ app.post("/api/node/metrics", nodeHeartbeatLimiter, requireNodeToken, async (req
 // Admin-only historical node metrics. Buckets are bounded to keep graph responses small.
 app.get("/api/admin/nodes/:id/metrics-history", requireAdmin, async (req, res, next) => {
   try {
-    if (!/^\\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid node ID." });
+    if (!/^\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid node ID." });
     const ranges = {
       "1h": { duration: "1 hour", bucket: "1 minute" },
       "6h": { duration: "6 hours", bucket: "5 minutes" },
