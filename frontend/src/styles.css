@@ -232,3 +232,16 @@
 .lumen-clean .clean-health-value.degraded,.lumen-clean .clean-health-value.stale{color:#e6bd62}
 .lumen-clean .clean-health-value.disabled{color:#ed9292}
 .lumen-clean .clean-health-value.unknown{color:#aeb4b7}
+
+
+/* Milestone 17 — node host telemetry */
+.lumen-clean .clean-node-metrics{margin-top:14px;padding:17px;background:#121415;border:1px solid #292b2d;border-radius:8px}
+.lumen-clean .clean-node-metrics-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:#292b2d;border:1px solid #292b2d;border-radius:7px;overflow:hidden;margin-top:13px}
+.lumen-clean .clean-node-metrics-grid>div{background:#101213;padding:14px;min-width:0}
+.lumen-clean .clean-node-metrics-grid span{display:block;color:#858d91;font-size:9px;font-weight:800;letter-spacing:.7px;margin-bottom:7px}
+.lumen-clean .clean-node-metrics-grid strong{display:block;color:#eceeee;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.lumen-clean .clean-metrics-live,.lumen-clean .clean-metrics-stale{font-size:9px;font-weight:800;padding:5px 8px;border-radius:5px}
+.lumen-clean .clean-metrics-live{color:#75d69a;background:#14251b}
+.lumen-clean .clean-metrics-stale{color:#f5c400;background:#292300}
+@media(max-width:700px){.lumen-clean .clean-node-metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.lumen-clean .clean-node-metrics-grid{grid-template-columns:1fr}}
