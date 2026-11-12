@@ -16,6 +16,9 @@ export default function App() {
   const [nodesError, setNodesError] = useState("");
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [nodeRefreshing, setNodeRefreshing] = useState(false);
+  const [nodeEvents, setNodeEvents] = useState([]);
+  const [nodeEventsLoading, setNodeEventsLoading] = useState(false);
+  const [nodeEventsError, setNodeEventsError] = useState("");
   const [nodesUpdatedAt, setNodesUpdatedAt] = useState(null);
   const [servers, setServers] = useState([]);
   const [selectedServerId, setSelectedServerId] = useState(null);
@@ -230,6 +233,28 @@ export default function App() {
     }
   };
 
+  const loadNodeEvents = async (nodeId = selectedNodeId) => {
+    if (!nodeId) return;
+    setNodeEvents([]);
+    setNodeEventsLoading(true);
+    setNodeEventsError("");
+    try {
+      const response = await fetch(`/api/admin/nodes/${nodeId}/events`, { credentials: "include" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not load node activity.");
+      setNodeEvents(data.events || []);
+    } catch (error) {
+      setNodeEventsError(error.message);
+    } finally {
+      setNodeEventsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (active !== "Nodes" || user?.role !== "admin" || selectedNodeId === null) return;
+    loadNodeEvents(selectedNodeId);
+  }, [active, user?.role, selectedNodeId]);
+
   const refreshNodeDetails = async () => {
     setNodeRefreshing(true);
     await loadNodes(false);
@@ -386,6 +411,29 @@ export default function App() {
                       <p>{node.status === "online" ? "The agent is sending heartbeats to Lumen Panel." : node.status === "disabled" ? "This node has been disabled." : "No recent heartbeat received. Check that the agent is running."}</p>
                       {node.enabled && <button type="button" className="clean-disable-button" onClick={() => disableNode(node.id)}>Disable node</button>}
                     </div>
+                  </section>
+                  <section className="server-card clean-activity-panel clean-node-activity-panel">
+                    <div className="clean-server-panel-heading">
+                      <div><Activity size={16}/><h2>Node agent activity</h2></div>
+                      <button type="button" className="clean-refresh-button" onClick={() => loadNodeEvents(node.id)} disabled={nodeEventsLoading}>{nodeEventsLoading ? "Loading…" : "↻ Refresh"}</button>
+                    </div>
+                    <p className="clean-form-note">Latest 50 authenticated agent startup and heartbeat acknowledgements. These are agent diagnostics, not Minecraft runtime events.</p>
+                    {nodeEventsError && <p className="clean-node-error">{nodeEventsError}</p>}
+                    {nodeEventsLoading && nodeEvents.length === 0 ? <div className="clean-activity-empty">Loading node activity…</div> : nodeEvents.length === 0 ? <div className="clean-activity-empty">No agent events recorded yet. Start the node agent to report its connection.</div> : (
+                      <div className="clean-activity-list">
+                        {nodeEvents.map(event => (
+                          <article className="clean-activity-item" key={event.id}>
+                            <span className="clean-activity-dot" aria-hidden="true"></span>
+                            <div className="clean-activity-copy">
+                              <strong>{event.event_type === "agent_started" ? "Agent started" : "Heartbeat accepted"}</strong>
+                              <p>{event.message || "Node agent event received."}</p>
+                              <small>{new Date(event.created_at).toLocaleString()}</small>
+                            </div>
+                            <span className="clean-activity-kind">AGENT</span>
+                          </article>
+                        ))}
+                      </div>
+                    )}
                   </section>
                 </>;
               })()}
