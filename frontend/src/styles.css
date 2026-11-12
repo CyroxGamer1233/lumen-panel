@@ -293,3 +293,38 @@
 .lumen-clean .clean-history-legend i.memory{background:#72d69a}
 .lumen-clean .clean-history-legend i.load{background:#77b7ed}
 @media(max-width:520px){.lumen-clean .clean-node-history{padding:12px}.lumen-clean .clean-history-summary{gap:6px}.lumen-clean .clean-history-summary>div{padding:9px}.lumen-clean .clean-history-summary strong{font-size:14px}.lumen-clean .clean-history-actions{width:100%}.lumen-clean .clean-history-actions .clean-refresh-button{margin-left:auto}}
+
+
+/* Milestone 21 — PufferPanel integration settings */
+.lumen-clean .puffer-page{max-width:980px}
+.lumen-clean .puffer-connection-card,.lumen-clean .puffer-security-card{padding:22px;margin-bottom:16px}
+.lumen-clean .puffer-card-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.lumen-clean .puffer-brand-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:rgba(245,190,45,.12);color:var(--accent,#f5bd2e)}
+.lumen-clean .puffer-card-title{flex:1;min-width:180px}
+.lumen-clean .puffer-card-title h2,.lumen-clean .puffer-security-card h2{margin:0;font-size:16px}
+.lumen-clean .puffer-card-title p{margin:5px 0 0;color:var(--muted,#929292);font-size:12px}
+.lumen-clean .puffer-status-pill{display:inline-flex;align-items:center;gap:7px;border-radius:20px;padding:7px 10px;font-size:11px;font-weight:700}
+.lumen-clean .puffer-status-pill>span{width:7px;height:7px;border-radius:50%;background:currentColor}
+.lumen-clean .puffer-status-pill.configured{color:#d9b74e;background:rgba(245,190,45,.1)}
+.lumen-clean .puffer-status-pill.not-configured{color:#a0a0a0;background:rgba(150,150,150,.1)}
+.lumen-clean .puffer-details-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:24px 0 16px}
+.lumen-clean .puffer-details-grid>div{padding:14px;border:1px solid var(--border,rgba(255,255,255,.08));border-radius:10px;min-width:0}
+.lumen-clean .puffer-details-grid small{display:block;color:var(--muted,#929292);font-size:10px;font-weight:700;letter-spacing:.08em;margin-bottom:8px}
+.lumen-clean .puffer-details-grid strong{display:block;font-size:12px;overflow-wrap:anywhere}
+.lumen-clean .puffer-notice,.lumen-clean .puffer-result{display:flex;align-items:flex-start;gap:9px;padding:12px;border-radius:9px;font-size:12px;line-height:1.5;margin-top:12px}
+.lumen-clean .puffer-notice{color:#d6b65c;background:rgba(245,190,45,.08);border:1px solid rgba(245,190,45,.16)}
+.lumen-clean .puffer-result.success{color:#8bd5a2;background:rgba(62,170,100,.09);border:1px solid rgba(62,170,100,.18)}
+.lumen-clean .puffer-result.error{color:#e69a9a;background:rgba(210,70,70,.08);border:1px solid rgba(210,70,70,.16)}
+.lumen-clean .puffer-actions{display:flex;justify-content:flex-end;margin-top:18px}
+.lumen-clean .puffer-actions button{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.lumen-clean .puffer-actions button:disabled{opacity:.45;cursor:not-allowed}
+.lumen-clean .puffer-security-card ul{margin:14px 0 0;padding-left:18px;color:var(--muted,#a5a5a5);font-size:12px;line-height:2}
+.lumen-clean .puffer-footnote{font-size:11px;color:var(--muted,#929292);line-height:1.6;margin:10px 2px}
+.lumen-clean .puffer-spin{animation:puffer-spin .9s linear infinite}
+@keyframes puffer-spin{to{transform:rotate(360deg)}}
+@media(max-width:640px){
+  .lumen-clean .puffer-connection-card,.lumen-clean .puffer-security-card{padding:16px}
+  .lumen-clean .puffer-details-grid{grid-template-columns:1fr;gap:8px;margin:18px 0 12px}
+  .lumen-clean .puffer-card-top{align-items:flex-start}
+  .lumen-clean .puffer-status-pill{margin-left:58px}
+}
