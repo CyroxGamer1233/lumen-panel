@@ -150,6 +150,22 @@ await pool.query(`
 
 
 await pool.query(`
+  CREATE TABLE IF NOT EXISTS node_alerts (
+    id BIGSERIAL PRIMARY KEY,
+    node_id BIGINT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+    alert_type VARCHAR(40) NOT NULL CHECK (alert_type IN ('cpu_high', 'memory_high')),
+    severity VARCHAR(16) NOT NULL CHECK (severity IN ('warning', 'critical')),
+    message VARCHAR(200) NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'resolved')),
+    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    resolved_at TIMESTAMPTZ
+  )
+`);
+await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS node_alerts_one_active_idx ON node_alerts (node_id, alert_type) WHERE status = 'active'");
+await pool.query("CREATE INDEX IF NOT EXISTS node_alerts_node_history_idx ON node_alerts (node_id, id DESC)");
+
+await pool.query(`
   CREATE TABLE IF NOT EXISTS servers (
     id BIGSERIAL PRIMARY KEY,
     owner_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -419,6 +435,20 @@ app.post("/api/node/health", nodeHeartbeatLimiter, requireNodeToken, async (req,
   } catch (error) { next(error); }
 });
 
+// Admin-only node alert history.
+app.get("/api/admin/nodes/:id/alerts", requireAdmin, async (req, res, next) => {
+  try {
+    if (!/^\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid node ID." });
+    const node = await pool.query("SELECT id FROM nodes WHERE id = $1", [req.params.id]);
+    if (!node.rowCount) return res.status(404).json({ error: "Node not found." });
+    const result = await pool.query(
+      "SELECT id, alert_type, severity, message, status, first_seen_at, last_seen_at, resolved_at FROM node_alerts WHERE node_id = $1 ORDER BY id DESC LIMIT 50",
+      [req.params.id]
+    );
+    res.json({ alerts: result.rows });
+  } catch (error) { next(error); }
+});
+
 // Latest host-level metrics reported by the authenticated node agent.
 app.post("/api/node/metrics", nodeHeartbeatLimiter, requireNodeToken, async (req, res, next) => {
   try {
@@ -454,7 +484,31 @@ app.post("/api/node/metrics", nodeHeartbeatLimiter, requireNodeToken, async (req
       [req.nodeId, body.cpuUsagePercent, body.memoryTotalBytes, body.memoryUsedBytes, body.uptimeSeconds, body.processRssBytes, body.load1m]
     );
     if (!result.rowCount) return res.status(401).json({ error: "Node is disabled." });
-    res.status(202).json({ accepted: true, reported_at: result.rows[0].reported_at });
+
+    const memoryPercent = (body.memoryUsedBytes / body.memoryTotalBytes) * 100;
+    const conditions = [
+      { type: "cpu_high", value: body.cpuUsagePercent, label: "CPU usage" },
+      { type: "memory_high", value: memoryPercent, label: "Memory usage" }
+    ];
+    for (const condition of conditions) {
+      if (condition.value !== null && condition.value >= 90) {
+        const severity = condition.value >= 95 ? "critical" : "warning";
+        const message = condition.label + " is " + condition.value.toFixed(1) + "% (threshold 90%).";
+        await pool.query(
+          `INSERT INTO node_alerts (node_id, alert_type, severity, message)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (node_id, alert_type) WHERE status = 'active'
+           DO UPDATE SET severity = EXCLUDED.severity, message = EXCLUDED.message, last_seen_at = NOW()`,
+          [req.nodeId, condition.type, severity, message]
+        );
+      } else {
+        await pool.query(
+          "UPDATE node_alerts SET status = 'resolved', resolved_at = NOW() WHERE node_id = $1 AND alert_type = $2 AND status = 'active'",
+          [req.nodeId, condition.type]
+        );
+      }
+    }
+    res.status(202).json({ accepted: true, reported_at: result.rows[0].reported_at, alert_threshold_percent: 90 });
   } catch (error) { next(error); }
 });
 
