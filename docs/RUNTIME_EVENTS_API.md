@@ -33,3 +33,15 @@ Each event includes:
 - This is an audit trail of reports and requests, not independent verification of a running process.
 - The current Codespaces agent sends heartbeats only. It does not report lifecycle events or control Minecraft.
 - No Docker socket, Wings API, arbitrary shell command, or Minecraft process execution is introduced.
+
+
+## Node agent event reporting (Milestone 14)
+
+The node agent reports two node-level diagnostic events to `POST /api/node/events` using its existing Bearer node token:
+
+- `agent_started` — sent when the development agent starts.
+- `heartbeat_accepted` — sent after the panel accepts a heartbeat.
+
+The endpoint accepts only these fixed event types, trims messages to 200 characters, applies the node API rate limit, and associates each event with the authenticated node. Admins can read the latest 50 events with `GET /api/admin/nodes/:id/events`.
+
+The Nodes → Details page displays this node-agent activity. It is separate from per-server Activity History: these events do not claim that Minecraft is installed or running. The agent still performs heartbeat reporting only; it does not execute shell commands, use Docker, or control Minecraft.
