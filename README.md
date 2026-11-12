@@ -240,3 +240,15 @@ Authentication requires a reachable PostgreSQL database and valid environment va
 - Admin node details displays the latest alert history.
 - Alerts are evaluated on incoming metrics reports; stale telemetry is indicated separately. No background offline-alert scheduler or external notification delivery is included.
 - API reference: [Node Alerts API](docs/NODE_ALERTS_API.md).
+ 
+## Milestone 19 — Node Resource Graphs & Historical Performance Analytics
+
+- Every accepted node metrics report is stored as a historical sample alongside the latest snapshot.
+- Admin Node Details displays CPU and memory history, plus a separate one-minute system load graph.
+- Time ranges: 1 hour, 6 hours, 24 hours and 7 days, with server-side aggregation to keep responses bounded.
+- The dashboard shows average CPU, peak CPU and average memory for the selected range and refreshes history while Node Details is open.
+- Historical samples are retained for seven days; expired rows are pruned when a node next reports metrics.
+- History starts collecting after deployment and is not backfilled from the previous latest-only metrics table.
+- Metrics remain host-level readings, not per-Minecraft-server or container usage. Codespaces readings describe the Codespaces environment.
+- API reference: [Node Metrics History API](docs/NODE_METRICS_HISTORY_API.md).
+
