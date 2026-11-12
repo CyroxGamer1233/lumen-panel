@@ -1,7 +1,4 @@
 const TOKEN_TIMEOUT_MS = 10_000;
-let cachedToken = null;
-let cachedTokenExpiresAt = 0;
-
 function readConfig() {
   const baseUrl = (process.env.PUFFERPANEL_URL || "").trim().replace(/\/+$/, "");
   const clientId = (process.env.PUFFERPANEL_CLIENT_ID || "").trim();
@@ -44,11 +41,6 @@ export async function testPufferPanelConnection() {
     throw error;
   }
 
-  const now = Date.now();
-  if (cachedToken && cachedTokenExpiresAt > now + 60_000) {
-    return { expiresIn: Math.max(1, Math.floor((cachedTokenExpiresAt - now) / 1000)), cached: true };
-  }
-
   const body = new URLSearchParams({
     grant_type: "client_credentials",
     client_id: config.clientId,
@@ -86,7 +78,7 @@ export async function testPufferPanelConnection() {
     error.publicMessage = error.message;
     throw error;
   }
-  cachedToken = payload.access_token;
-  cachedTokenExpiresAt = Date.now() + expiresIn * 1000;
-  return { expiresIn, cached: false };
+  // The connection test discards the access token immediately; later milestones
+  // will add a scoped API client with explicit token lifecycle management.
+  return { expiresIn };
 }
