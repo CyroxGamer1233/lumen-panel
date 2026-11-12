@@ -26,7 +26,7 @@ function averageHistory(points, key) {
 }
 
 function peakHistory(points, key) {
-  const values = points.map(point => Number(point[key])).filter(Number.isFinite);
+  const values = points.map(point => point[key] == null || point[key] === "" ? NaN : Number(point[key])).filter(Number.isFinite);
   return values.length ? Math.max(...values).toFixed(1) : "—";
 }
 
