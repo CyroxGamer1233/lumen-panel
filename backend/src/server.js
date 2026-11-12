@@ -329,7 +329,10 @@ app.get("/api/admin/nodes", requireAdmin, async (_req, res, next) => {
         CASE WHEN agent_health_reported_at IS NULL THEN NULL
           ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - agent_health_reported_at))))::INTEGER END AS health_report_age_seconds,
         CASE WHEN enabled = FALSE THEN 'disabled'
-          WHEN last_seen_at IS NULL OR last_seen_at <= NOW() - INTERVAL '90 seconds' THEN 'stale'
+          WHEN last_seen_at IS NULL THEN 'unknown'
+          WHEN last_seen_at <= NOW() - INTERVAL '90 seconds'
+            OR agent_health_reported_at IS NULL
+            OR agent_health_reported_at <= NOW() - INTERVAL '90 seconds' THEN 'stale'
           ELSE COALESCE(agent_health_status, 'unknown') END AS effective_health_status
       FROM nodes ORDER BY created_at DESC
     `);
