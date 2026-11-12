@@ -231,3 +231,12 @@ Authentication requires a reachable PostgreSQL database and valid environment va
 
 - Node resource telemetry: host CPU, memory, uptime, agent RSS and load average, with stale-report detection.
 - API reference: [Node Metrics API](docs/NODE_METRICS_API.md).
+
+
+## Milestone 18 — Node Diagnostics & Alerts
+
+- CPU and memory warning alerts at 90% and critical alerts at 95%.
+- Active alerts are deduplicated and automatically resolved when readings fall below the warning threshold.
+- Admin node details displays the latest alert history.
+- Alerts are evaluated on incoming metrics reports; stale telemetry is indicated separately. No background offline-alert scheduler or external notification delivery is included.
+- API reference: [Node Alerts API](docs/NODE_ALERTS_API.md).
