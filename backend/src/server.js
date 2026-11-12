@@ -164,6 +164,16 @@ await pool.query(`
   )
 `);
 await pool.query("CREATE INDEX IF NOT EXISTS server_activity_events_server_id_id_idx ON server_activity_events(server_id, id DESC)");
+await pool.query(\`
+  CREATE TABLE IF NOT EXISTS node_activity_events (
+    id BIGSERIAL PRIMARY KEY,
+    node_id BIGINT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+    event_type VARCHAR(32) NOT NULL CHECK (event_type IN ('agent_started', 'heartbeat_accepted')),
+    message VARCHAR(200),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )
+\`);
+await pool.query("CREATE INDEX IF NOT EXISTS node_activity_events_node_id_id_idx ON node_activity_events(node_id, id DESC)");
 
 await pool.query(`
   CREATE TABLE IF NOT EXISTS allocations (
@@ -377,6 +387,35 @@ app.post("/api/node/servers/:id/status", nodeHeartbeatLimiter, requireNodeToken,
       [req.params.id, req.nodeId, status, message || null]
     );
     res.json({ accepted: true, observation: result.rows[0], server_time: new Date().toISOString() });
+  } catch (error) { next(error); }
+});
+
+// Node-agent diagnostics only; these do not represent Minecraft process states.
+app.post("/api/node/events", nodeHeartbeatLimiter, requireNodeToken, async (req, res, next) => {
+  try {
+    const eventType = typeof req.body.eventType === "string" ? req.body.eventType : "";
+    if (!["agent_started", "heartbeat_accepted"].includes(eventType)) {
+      return res.status(400).json({ error: "Unsupported node agent event type." });
+    }
+    const message = typeof req.body.message === "string" ? req.body.message.trim().slice(0, 200) : null;
+    const result = await pool.query(
+      "INSERT INTO node_activity_events (node_id, event_type, message) VALUES ($1, $2, $3) RETURNING id, event_type, message, created_at",
+      [req.nodeId, eventType, message || null]
+    );
+    res.status(201).json({ accepted: true, event: result.rows[0] });
+  } catch (error) { next(error); }
+});
+
+app.get("/api/admin/nodes/:id/events", requireAdmin, async (req, res, next) => {
+  try {
+    if (!/^\\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid node ID." });
+    const node = await pool.query("SELECT id FROM nodes WHERE id = $1", [req.params.id]);
+    if (!node.rowCount) return res.status(404).json({ error: "Node not found." });
+    const result = await pool.query(
+      "SELECT id, event_type, message, created_at FROM node_activity_events WHERE node_id = $1 ORDER BY id DESC LIMIT 50",
+      [req.params.id]
+    );
+    res.json({ events: result.rows, limit: 50 });
   } catch (error) { next(error); }
 });
 
