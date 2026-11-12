@@ -38,7 +38,6 @@ const sessionStore = new PgSession({
 });
 
 app.disable("x-powered-by");
-if (isProduction) app.set("trust proxy", 1);
 app.use(helmet());
 app.use(cors({ origin: allowedOrigin, credentials: true }));
 app.use(express.json({ limit: "16kb" }));
@@ -443,7 +442,7 @@ app.post("/api/node/events", nodeHeartbeatLimiter, requireNodeToken, async (req,
 
 app.get("/api/admin/nodes/:id/events", requireAdmin, async (req, res, next) => {
   try {
-    if (!/^\\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid node ID." });
+    if (!/^\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid node ID." });
     const node = await pool.query("SELECT id FROM nodes WHERE id = $1", [req.params.id]);
     if (!node.rowCount) return res.status(404).json({ error: "Node not found." });
     const result = await pool.query(
@@ -565,9 +564,10 @@ app.post("/api/admin/allocations", requireAdmin, requireCsrf, async (req, res, n
 });
 
 app.post("/api/servers/:id/allocation", requireAdmin, requireCsrf, async (req, res, next) => {
-  const client = await pool.connect();
+  let client;
   try {
     if (!/^\d+$/.test(req.params.id)) return res.status(400).json({ error: "Invalid server ID." });
+    client = await pool.connect();
     const serverId = Number(req.params.id);
     const allocationId = req.body.allocationId === "" || req.body.allocationId == null ? null : Number(req.body.allocationId);
     if (allocationId !== null && (!Number.isSafeInteger(allocationId) || allocationId < 1)) return res.status(400).json({ error: "Choose a valid allocation." });
@@ -590,7 +590,7 @@ app.post("/api/servers/:id/allocation", requireAdmin, requireCsrf, async (req, r
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     next(error);
-  } finally { client.release(); }
+  } finally { client?.release(); }
 });
 
 app.patch("/api/servers/:id/config", requireAdmin, requireCsrf, async (req, res, next) => {
