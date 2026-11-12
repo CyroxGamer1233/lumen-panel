@@ -223,3 +223,12 @@
 
 /* Node agent event reporting — Milestone 14 */
 .lumen-clean .clean-node-activity-panel{margin-top:13px}
+
+
+/* Node agent health monitoring — Milestone 15 */
+.lumen-clean .clean-node-health-summary{font-size:9px!important;color:#d8bd50!important;text-transform:capitalize}
+.lumen-clean .clean-health-value{overflow-wrap:anywhere;text-transform:capitalize}
+.lumen-clean .clean-health-value.healthy{color:#7be0a1}
+.lumen-clean .clean-health-value.degraded,.lumen-clean .clean-health-value.stale{color:#e6bd62}
+.lumen-clean .clean-health-value.disabled{color:#ed9292}
+.lumen-clean .clean-health-value.unknown{color:#aeb4b7}
