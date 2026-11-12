@@ -26,7 +26,10 @@ if (!["127.0.0.1", "localhost"].includes(target.hostname)) {
 
 const heartbeatUrl = `${panelUrl}/api/node/heartbeat`;
 const eventsUrl = `${panelUrl}/api/node/events`;
+const healthUrl = `${panelUrl}/api/node/health`;
 let stopping = false;
+let consecutiveFailures = 0;
+let lastErrorMessage = null;
 
 async function reportEvent(eventType, message) {
   try {
@@ -51,6 +54,33 @@ async function reportEvent(eventType, message) {
   }
 }
 
+async function reportHealth(status, message = null) {
+  try {
+    const response = await fetch(healthUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        status,
+        consecutiveFailures,
+        message: message ? String(message).slice(0, 200) : null
+      }),
+      signal: AbortSignal.timeout(10_000)
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      console.error(`[Lumen Agent] Health report rejected: HTTP ${response.status} — ${body.error || "request failed"}`);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error(`[Lumen Agent] Health report unavailable: ${error.message}`);
+    return false;
+  }
+}
+
 async function heartbeat() {
   try {
     const response = await fetch(heartbeatUrl, {
@@ -65,18 +95,27 @@ async function heartbeat() {
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
-      console.error(`[Lumen Agent] Heartbeat rejected: HTTP ${response.status} — ${body.error || "request failed"}`);
+      consecutiveFailures = Math.min(1000, consecutiveFailures + 1);
+      lastErrorMessage = `Heartbeat rejected (HTTP ${response.status}): ${body.error || "request failed"}`.slice(0, 200);
+      console.error(`[Lumen Agent] ${lastErrorMessage}`);
       if (response.status === 401) {
         console.error("[Lumen Agent] Check that this node is enabled and its token is correct.");
       }
+      await reportHealth("degraded", lastErrorMessage);
       return;
     }
 
     const result = await response.json();
+    consecutiveFailures = 0;
+    lastErrorMessage = null;
     console.log(`[Lumen Agent] Connected • v${version} • next heartbeat in ${result.next_heartbeat_seconds || 30}s`);
+    await reportHealth("healthy");
     await reportEvent("heartbeat_accepted", `Heartbeat accepted • agent v${version}`);
   } catch (error) {
-    console.error(`[Lumen Agent] API unavailable: ${error.message}`);
+    consecutiveFailures = Math.min(1000, consecutiveFailures + 1);
+    lastErrorMessage = `API unavailable: ${error.message}`.slice(0, 200);
+    console.error(`[Lumen Agent] ${lastErrorMessage}`);
+    await reportHealth("degraded", lastErrorMessage);
   }
 }
 
