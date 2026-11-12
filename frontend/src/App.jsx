@@ -377,7 +377,7 @@ export default function App() {
                   <div className="clean-node-list">
                     {nodes.map(node => (
                       <section className="server-card clean-node-card" key={node.id}>
-                        <div><strong>{node.name}</strong><p>{node.agent_version ? `Agent ${node.agent_version}` : "Agent not detected"} · {node.last_seen_at ? new Date(node.last_seen_at).toLocaleString() : "Never connected"}</p></div>
+                        <div><strong>{node.name}</strong><p>{node.agent_version ? `Agent ${node.agent_version}` : "Agent not detected"} · {node.last_seen_at ? new Date(node.last_seen_at).toLocaleString() : "Never connected"}</p><p className="clean-node-health-summary">Agent health: {node.effective_health_status || "unknown"}{Number(node.agent_consecutive_failures) > 0 ? ` · ${node.agent_consecutive_failures} failed checks` : ""}</p></div>
                         <span className={"clean-node-status " + node.status}>{node.status}</span>
                         <button type="button" className="clean-node-open-button" onClick={() => setSelectedNodeId(node.id)}>Details →</button>
                         {node.enabled && <button type="button" className="clean-disable-button" onClick={() => disableNode(node.id)}>Disable</button>}
@@ -405,10 +405,15 @@ export default function App() {
                       <div><span>AGENT VERSION</span><strong>{node.agent_version || "Not detected"}</strong></div>
                       <div><span>LAST HEARTBEAT</span><strong>{node.last_seen_at ? new Date(node.last_seen_at).toLocaleString() : "Never connected"}</strong></div>
                       <div><span>HEARTBEAT AGE</span><strong>{node.heartbeat_age_seconds == null ? "—" : node.heartbeat_age_seconds + "s ago"}</strong></div>
+                      <div><span>AGENT HEALTH</span><strong className={"clean-health-value " + (node.effective_health_status || "unknown")}>{node.effective_health_status || "unknown"}</strong></div>
+                      <div><span>CONSECUTIVE FAILURES</span><strong>{node.agent_consecutive_failures ?? 0}</strong></div>
+                      <div><span>LAST HEALTH REPORT</span><strong>{node.agent_health_reported_at ? new Date(node.agent_health_reported_at).toLocaleString() : "No report yet"}</strong></div>
+                      <div><span>HEALTH REPORT AGE</span><strong>{node.health_report_age_seconds == null ? "—" : node.health_report_age_seconds + "s ago"}</strong></div>
+                      <div><span>LAST DIAGNOSTIC</span><strong>{node.agent_health_message || "No diagnostic message"}</strong></div>
                       <div><span>CREATED</span><strong>{node.created_at ? new Date(node.created_at).toLocaleString() : "—"}</strong></div>
                     </div>
                     <div className="clean-node-detail-footer">
-                      <p>{node.status === "online" ? "The agent is sending heartbeats to Lumen Panel." : node.status === "disabled" ? "This node has been disabled." : "No recent heartbeat received. Check that the agent is running."}</p>
+                      <p>{node.status === "disabled" ? "This node has been disabled." : node.status !== "online" ? "No recent heartbeat received. Check that the agent and panel are reachable." : node.effective_health_status === "degraded" ? "The agent reported recent connection or heartbeat errors." : node.effective_health_status === "stale" ? "The last health report is stale. Wait for a fresh heartbeat or check the agent." : node.effective_health_status === "healthy" ? "The agent recently reported healthy communication with Lumen Panel." : "The node is online, but no health report has been received yet."}</p>
                       {node.enabled && <button type="button" className="clean-disable-button" onClick={() => disableNode(node.id)}>Disable node</button>}
                     </div>
                   </section>
