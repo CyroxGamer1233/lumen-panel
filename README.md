@@ -192,3 +192,11 @@ Authentication requires a reachable PostgreSQL database and valid environment va
 - Power requests are recorded as panel activity, but continue to return `RUNTIME_NOT_CONNECTED` with `executed: false`; they do not start, stop, or restart Minecraft.
 - Server Details displays the latest event history and supports manual refresh.
 - The history is an audit of received reports and requests, not proof that a Minecraft process is running. The existing Codespaces node agent remains heartbeat-only and does not send runtime status events.
+
+
+## Node agent event reporting (Milestone 14)
+
+- The heartbeat-only development agent reports its startup and successful heartbeat acknowledgements through a node-authenticated event endpoint.
+- Node agent events are stored separately from per-server runtime activity and are visible to administrators on Nodes → Details.
+- The API accepts only `agent_started` and `heartbeat_accepted`, applies the existing node API rate limit, and stores short messages with timestamps.
+- These records confirm agent/API communication only. They do not prove that Minecraft is running and do not enable Docker, shell execution, or server power controls.
