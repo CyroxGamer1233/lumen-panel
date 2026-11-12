@@ -20,6 +20,48 @@ function formatDuration(value) {
   const minutes = Math.floor((seconds % 3600) / 60);
   return days + "d " + hours + "h " + minutes + "m";
 }
+function averageHistory(points, key) {
+  const values = points.map(point => Number(point[key])).filter(Number.isFinite);
+  return values.length ? (values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1) : "—";
+}
+
+function peakHistory(points, key) {
+  const values = points.map(point => Number(point[key])).filter(Number.isFinite);
+  return values.length ? Math.max(...values).toFixed(1) : "—";
+}
+
+function MetricHistoryChart({ title, points, series, maxValue = 100, unit = "%" }) {
+  const width = 600;
+  const left = 42;
+  const right = 590;
+  const top = 14;
+  const bottom = 150;
+  const yFor = value => bottom - (Math.max(0, Math.min(maxValue, Number(value))) / maxValue) * (bottom - top);
+  const xFor = index => points.length <= 1 ? (left + right) / 2 : left + (index / (points.length - 1)) * (right - left);
+  const startLabel = points.length ? new Date(points[0].bucket_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+  const endLabel = points.length ? new Date(points[points.length - 1].bucket_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+  return (
+    <div className="clean-history-chart">
+      <div className="clean-history-chart-heading"><strong>{title}</strong><span>{unit === "%" ? "0–100%" : `Scale 0–${maxValue}`}</span></div>
+      <svg viewBox={`0 0 ${width} 174`} role="img" aria-label={`${title} historical graph`}>
+        {[0, 25, 50, 75, 100].map(tick => {
+          const value = maxValue * tick / 100;
+          const y = yFor(value);
+          return <g key={tick}><line x1={left} y1={y} x2={right} y2={y} className="clean-history-grid-line"/><text x="4" y={y + 3} className="clean-history-axis-label">{Math.round(value)}{unit}</text></g>;
+        })}
+        {series.map(item => {
+          const coordinates = points.map((point, index) => {
+            const value = Number(point[item.key]);
+            return Number.isFinite(value) ? `${xFor(index)},${yFor(value)}` : null;
+          }).filter(Boolean).join(" ");
+          return <polyline key={item.key} points={coordinates} className={`clean-history-line ${item.className}`} />;
+        })}
+      </svg>
+      <div className="clean-history-time-labels"><span>{startLabel}</span><span>{endLabel}</span></div>
+      <div className="clean-history-legend">{series.map(item => <span key={item.key}><i className={item.className}></i>{item.label}</span>)}</div>
+    </div>
+  );
+}
 
 export default function App() {
   const [active, setActive] = useState("Overview");
@@ -41,6 +83,11 @@ export default function App() {
   const [nodeAlerts, setNodeAlerts] = useState([]);
   const [nodeAlertsLoading, setNodeAlertsLoading] = useState(false);
   const [nodeAlertsError, setNodeAlertsError] = useState("");
+  const [nodeMetricsHistory, setNodeMetricsHistory] = useState([]);
+  const [nodeMetricsHistoryLoading, setNodeMetricsHistoryLoading] = useState(false);
+  const [nodeMetricsHistoryError, setNodeMetricsHistoryError] = useState("");
+  const [nodeMetricsRange, setNodeMetricsRange] = useState("24h");
+  const [nodeMetricsHistoryNodeId, setNodeMetricsHistoryNodeId] = useState(null);
   const [nodesUpdatedAt, setNodesUpdatedAt] = useState(null);
   const [servers, setServers] = useState([]);
   const [selectedServerId, setSelectedServerId] = useState(null);
@@ -272,6 +319,25 @@ export default function App() {
     }
   };
 
+  const loadNodeMetricsHistory = async (nodeId = selectedNodeId, range = nodeMetricsRange) => {
+    if (nodeId === null) return;
+    setNodeMetricsHistoryLoading(true);
+    setNodeMetricsHistoryError("");
+    try {
+      const response = await fetch(`/api/admin/nodes/${nodeId}/metrics-history?range=${encodeURIComponent(range)}`, { credentials: "include" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Unable to load performance history.");
+      setNodeMetricsHistory(data.points || []);
+      setNodeMetricsHistoryNodeId(String(nodeId));
+    } catch (error) {
+      setNodeMetricsHistoryError(error.message);
+      setNodeMetricsHistory([]);
+      setNodeMetricsHistoryNodeId(String(nodeId));
+    } finally {
+      setNodeMetricsHistoryLoading(false);
+    }
+  };
+
   const loadNodeEvents = async (nodeId = selectedNodeId) => {
     if (!nodeId) return;
     setNodeEvents([]);
@@ -293,11 +359,14 @@ export default function App() {
     if (active !== "Nodes" || user?.role !== "admin" || selectedNodeId === null) return;
     loadNodeEvents(selectedNodeId);
     loadNodeAlerts(selectedNodeId);
-  }, [active, user?.role, selectedNodeId]);
+    loadNodeMetricsHistory(selectedNodeId, nodeMetricsRange);
+    const timer = window.setInterval(() => loadNodeMetricsHistory(selectedNodeId, nodeMetricsRange), 30000);
+    return () => window.clearInterval(timer);
+  }, [active, user?.role, selectedNodeId, nodeMetricsRange]);
 
   const refreshNodeDetails = async () => {
     setNodeRefreshing(true);
-    await loadNodes(false);
+    await Promise.all([loadNodes(false), loadNodeMetricsHistory(selectedNodeId, nodeMetricsRange)]);
     setNodeRefreshing(false);
   };
 
@@ -468,6 +537,28 @@ export default function App() {
                         <div><span>1-MIN LOAD AVERAGE</span><strong>{node.load_1m == null ? "—" : Number(node.load_1m).toFixed(2)}</strong></div>
                         <div><span>LAST METRICS REPORT</span><strong>{node.metrics_reported_at ? new Date(node.metrics_reported_at).toLocaleString() : "No report yet"}</strong></div>
                       </div>
+                    </section>
+                    <section className="clean-node-history">
+                      <div className="clean-server-panel-heading clean-history-heading">
+                        <div><Activity size={16}/><h2>Performance history</h2></div>
+                        <div className="clean-history-actions">
+                          {[["1h", "1H"], ["6h", "6H"], ["24h", "24H"], ["7d", "7D"]].map(([value, label]) => <button type="button" key={value} className={nodeMetricsRange === value ? "active" : ""} onClick={() => setNodeMetricsRange(value)}>{label}</button>)}
+                          <button type="button" className="clean-refresh-button" onClick={() => loadNodeMetricsHistory(node.id, nodeMetricsRange)} disabled={nodeMetricsHistoryLoading}>{nodeMetricsHistoryLoading ? "Loading…" : "↻"}</button>
+                        </div>
+                      </div>
+                      <p className="clean-form-note">Historical host readings. Samples are collected every 30 seconds and retained for 7 days.</p>
+                      {nodeMetricsHistoryError && <p className="clean-node-error">{nodeMetricsHistoryError}</p>}
+                      {nodeMetricsHistoryLoading && nodeMetricsHistoryNodeId !== String(node.id) ? <div className="clean-activity-empty">Loading performance history…</div> : nodeMetricsHistory.length === 0 || nodeMetricsHistoryNodeId !== String(node.id) ? <div className="clean-activity-empty">No historical samples yet. New reports will appear here; older readings are not backfilled.</div> : (
+                        <>
+                          <div className="clean-history-summary">
+                            <div><span>AVG CPU</span><strong>{averageHistory(nodeMetricsHistory, "cpu_avg")}{averageHistory(nodeMetricsHistory, "cpu_avg") === "—" ? "" : "%"}</strong></div>
+                            <div><span>PEAK CPU</span><strong>{peakHistory(nodeMetricsHistory, "cpu_max")}{peakHistory(nodeMetricsHistory, "cpu_max") === "—" ? "" : "%"}</strong></div>
+                            <div><span>AVG MEMORY</span><strong>{averageHistory(nodeMetricsHistory, "memory_avg")}{averageHistory(nodeMetricsHistory, "memory_avg") === "—" ? "" : "%"}</strong></div>
+                          </div>
+                          <MetricHistoryChart title="CPU & memory usage" points={nodeMetricsHistory} series={[{ key: "cpu_avg", label: "CPU", className: "cpu" }, { key: "memory_avg", label: "Memory", className: "memory" }]} />
+                          <MetricHistoryChart title="System load average" points={nodeMetricsHistory} series={[{ key: "load_avg", label: "1-minute load", className: "load" }]} maxValue={Math.max(1, Math.ceil(Math.max(...nodeMetricsHistory.map(point => Number(point.load_avg) || 0)) * 1.2))} unit="" />
+                        </>
+                      )}
                     </section>
                     <section className="clean-node-alerts">
                       <div className="clean-server-panel-heading">
