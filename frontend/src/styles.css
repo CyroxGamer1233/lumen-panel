@@ -281,6 +281,10 @@
 .lumen-clean .clean-history-line.cpu{stroke:#ffd400}
 .lumen-clean .clean-history-line.memory{stroke:#72d69a}
 .lumen-clean .clean-history-line.load{stroke:#77b7ed}
+.lumen-clean .clean-history-point{stroke:#0e0f10;stroke-width:1;vector-effect:non-scaling-stroke}
+.lumen-clean .clean-history-point.cpu{fill:#ffd400}
+.lumen-clean .clean-history-point.memory{fill:#72d69a}
+.lumen-clean .clean-history-point.load{fill:#77b7ed}
 .lumen-clean .clean-history-time-labels{display:flex;justify-content:space-between;color:#777f83;font-size:8px;margin:0 2px}
 .lumen-clean .clean-history-legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
 .lumen-clean .clean-history-legend span{display:flex;align-items:center;gap:6px;color:#aeb4b7;font-size:8px}
