@@ -252,3 +252,8 @@ Authentication requires a reachable PostgreSQL database and valid environment va
 - Metrics remain host-level readings, not per-Minecraft-server or container usage. Codespaces readings describe the Codespaces environment.
 - API reference: [Node Metrics History API](docs/NODE_METRICS_HISTORY_API.md).
 
+
+
+## PufferPanel integration foundation
+
+Lumen is the customer-facing dashboard; PufferPanel is the planned Minecraft server engine. The initial integration branch adds server-side OAuth2 configuration and an admin-only connection test. It does not yet provision users or Minecraft servers, and it does not enable console, file, or power actions. See [docs/PUFFERPANEL_INTEGRATION.md](docs/PUFFERPANEL_INTEGRATION.md) before configuring credentials. PufferPanel credentials must remain in the backend environment and must never be sent to the browser.
