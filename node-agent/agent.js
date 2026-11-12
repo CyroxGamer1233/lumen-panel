@@ -25,7 +25,31 @@ if (!["127.0.0.1", "localhost"].includes(target.hostname)) {
 }
 
 const heartbeatUrl = `${panelUrl}/api/node/heartbeat`;
+const eventsUrl = `${panelUrl}/api/node/events`;
 let stopping = false;
+
+async function reportEvent(eventType, message) {
+  try {
+    const response = await fetch(eventsUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ eventType, message }),
+      signal: AbortSignal.timeout(10_000)
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      console.error(`[Lumen Agent] Event report rejected: HTTP ${response.status} — ${body.error || "request failed"}`);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error(`[Lumen Agent] Event report unavailable: ${error.message}`);
+    return false;
+  }
+}
 
 async function heartbeat() {
   try {
@@ -50,6 +74,7 @@ async function heartbeat() {
 
     const result = await response.json();
     console.log(`[Lumen Agent] Connected • v${version} • next heartbeat in ${result.next_heartbeat_seconds || 30}s`);
+    await reportEvent("heartbeat_accepted", `Heartbeat accepted • agent v${version}`);
   } catch (error) {
     console.error(`[Lumen Agent] API unavailable: ${error.message}`);
   }
@@ -67,6 +92,7 @@ process.on("SIGTERM", stop);
 
 console.log("[Lumen Agent] Starting heartbeat-only development agent.");
 console.log(`[Lumen Agent] API: ${heartbeatUrl}`);
+await reportEvent("agent_started", `Agent v${version} started`);
 await heartbeat();
 
 while (!stopping) {
